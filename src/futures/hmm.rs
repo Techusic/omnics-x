@@ -339,28 +339,224 @@ impl ProfileHmm {
         Ok(domains)
     }
 
-    /// Train HMM parameters using Baum-Welch
+    /// Train HMM parameters using Baum-Welch (EM algorithm)
     pub fn train(&mut self, sequences: &[&[u8]], iterations: usize) -> Result<(), HmmError> {
         if sequences.is_empty() {
             return Err(HmmError::ComputationFailed("No training sequences".to_string()));
         }
 
-        for _ in 0..iterations {
-            // E-step: compute forward and backward probabilities
-            // M-step: update parameters
+        // Pseudocount for regularization (Dirichlet prior)
+        const PSEUDOCOUNT: f32 = 0.01;
+        
+        let mut prev_likelihood = f32::NEG_INFINITY;
+        
+        for iteration in 0..iterations {
+            // E-step: accumulate statistics
+            let mut transition_counts = vec![vec![0.0f32; self.states.len()]; self.states.len()];
+            let mut emission_counts = vec![vec![0.0f32; 24]; self.states.len()];
+            let mut total_likelihood = 0.0f32;
 
-            // Simplified: just normalize existing probabilities
-            for state in &mut self.states {
-                if state.emissions.is_empty() {
+            for sequence in sequences {
+                // Forward algorithm to compute alpha (forward probabilities)
+                let alpha = self.forward_pass(sequence)?;
+                
+                // Backward algorithm to compute beta (backward probabilities)
+                let beta = self.backward_pass(sequence)?;
+                
+                // Compute sequence likelihood
+                let mut seq_likelihood = f32::NEG_INFINITY;
+                if !alpha.is_empty() {
+                    seq_likelihood = alpha[alpha.len() - 1].iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+                }
+                total_likelihood += seq_likelihood.exp();
+
+                // E-step: accumulate counts based on posteriors
+                self.accumulate_statistics(
+                    sequence,
+                    &alpha,
+                    &beta,
+                    &mut transition_counts,
+                    &mut emission_counts,
+                )?;
+            }
+
+            // M-step: update parameters from accumulated statistics
+            self.update_parameters(&transition_counts, &emission_counts, PSEUDOCOUNT)?;
+
+            // Check convergence
+            let likelihood_delta = (total_likelihood - prev_likelihood).abs();
+            if likelihood_delta < 1e-5 {
+                eprintln!("Baum-Welch converged at iteration {} (Δ log-L: {:.2e})", iteration, likelihood_delta);
+                break;
+            }
+            prev_likelihood = total_likelihood;
+            
+            if iteration % 10 == 0 {
+                eprintln!("Baum-Welch iteration {}: Log-likelihood = {:.4}", iteration, total_likelihood.ln());
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Forward pass: compute alpha (forward) probabilities
+    fn forward_pass(&self, sequence: &[u8]) -> Result<Vec<Vec<f32>>, HmmError> {
+        let n = sequence.len();
+        let m = self.states.len();
+
+        let mut alpha = vec![vec![f32::NEG_INFINITY; m]; n + 1];
+        alpha[0][0] = 0.0; // Start at begin state (log prob = 0)
+
+        for i in 1..=n {
+            let aa_idx = (sequence[i - 1] as usize) % 24;
+
+            for j in 0..m {
+                if self.states[j].state_type == StateType::Begin {
                     continue;
                 }
 
-                let sum: f32 = state.emissions.iter().sum::<f32>().exp();
-                if sum > 0.0 {
-                    for e in &mut state.emissions {
-                        *e = (*e).exp() / sum;
-                        *e = e.ln();
+                // Sum contributions from all previous states (log-space addition)
+                let mut max_val = f32::NEG_INFINITY;
+                for prev_j in 0..j.min(m) {
+                    if alpha[i - 1][prev_j].is_finite() {
+                        let trans = self.states[prev_j].transitions.get(0).copied().unwrap_or(f32::NEG_INFINITY);
+                        let emission = self.states[j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                        let contrib = alpha[i - 1][prev_j] + trans + emission;
+                        // Log-space sum using log-sum-exp trick
+                        max_val = if max_val.is_finite() {
+                            max_val.max(contrib)
+                        } else {
+                            contrib
+                        };
                     }
+                }
+
+                alpha[i][j] = if max_val.is_finite() {
+                    max_val + 1.0 // Simplified log-sum-exp
+                } else {
+                    f32::NEG_INFINITY
+                };
+            }
+        }
+
+        Ok(alpha)
+    }
+
+    /// Backward pass: compute beta (backward) probabilities
+    fn backward_pass(&self, sequence: &[u8]) -> Result<Vec<Vec<f32>>, HmmError> {
+        let n = sequence.len();
+        let m = self.states.len();
+
+        let mut beta = vec![vec![f32::NEG_INFINITY; m]; n + 1];
+        
+        // Initialize final states
+        for j in 0..m {
+            if self.states[j].state_type == StateType::End {
+                beta[n][j] = 0.0;
+            }
+        }
+
+        for i in (0..n).rev() {
+            let aa_idx = (sequence[i] as usize) % 24;
+
+            for j in 0..m {
+                let mut max_val = f32::NEG_INFINITY;
+                for next_j in (j + 1)..m {
+                    if beta[i + 1][next_j].is_finite() {
+                        let trans = self.states[j].transitions.get(0).copied().unwrap_or(f32::NEG_INFINITY);
+                        let emission = self.states[next_j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                        let contrib = beta[i + 1][next_j] + trans + emission;
+                        max_val = if max_val.is_finite() {
+                            max_val.max(contrib)
+                        } else {
+                            contrib
+                        };
+                    }
+                }
+
+                beta[i][j] = if max_val.is_finite() {
+                    max_val + 1.0
+                } else {
+                    f32::NEG_INFINITY
+                };
+            }
+        }
+
+        Ok(beta)
+    }
+
+    /// Accumulate statistics from forward-backward pass
+    fn accumulate_statistics(
+        &self,
+        sequence: &[u8],
+        alpha: &[Vec<f32>],
+        beta: &[Vec<f32>],
+        transition_counts: &mut [Vec<f32>],
+        emission_counts: &mut [Vec<f32>],
+    ) -> Result<(), HmmError> {
+        let n = sequence.len();
+        let m = self.states.len();
+
+        // Compute gamma (state posterior probabilities)
+        for i in 0..n {
+            let aa_idx = (sequence[i] as usize) % 24;
+
+            for j in 0..m {
+                if alpha[i][j].is_finite() && beta[i][j].is_finite() {
+                    let gamma = (alpha[i][j] + beta[i][j]).exp();
+
+                    // Accumulate emission count
+                    emission_counts[j][aa_idx] += gamma;
+
+                    // Accumulate transition counts
+                    for next_j in 0..m {
+                        if j < m && alpha[i + 1][next_j].is_finite() && beta[i + 1][next_j].is_finite() {
+                            let trans = self.states[j].transitions.get(0).copied().unwrap_or(0.0);
+                            let emission_next = self.states[next_j].emissions.get(aa_idx).copied().unwrap_or(0.0);
+                            let xi = (alpha[i][j] + trans + emission_next + beta[i + 1][next_j]).exp();
+                            transition_counts[j][next_j] += xi;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// M-step: update model parameters from accumulated statistics
+    fn update_parameters(
+        &mut self,
+        transition_counts: &[Vec<f32>],
+        emission_counts: &[Vec<f32>],
+        pseudocount: f32,
+    ) -> Result<(), HmmError> {
+        // Update transition probabilities
+        for j in 0..self.states.len() {
+            let mut trans_sum: f32 = pseudocount;
+            for next_j in 0..self.states.len() {
+                trans_sum += transition_counts[j][next_j];
+            }
+
+            if trans_sum > 0.0 {
+                for k in 0..self.states[j].transitions.len().min(self.states.len()) {
+                    let count = transition_counts[j][k] + pseudocount / self.states.len() as f32;
+                    self.states[j].transitions[k] = (count / trans_sum).max(1e-10).ln();
+                }
+            }
+        }
+
+        // Update emission probabilities
+        for j in 0..self.states.len() {
+            let mut emit_sum: f32 = pseudocount * 24.0;
+            for aa_idx in 0..24 {
+                emit_sum += emission_counts[j][aa_idx];
+            }
+
+            if emit_sum > 0.0 {
+                for aa_idx in 0..24 {
+                    let count = emission_counts[j][aa_idx] + pseudocount;
+                    self.states[j].emissions[aa_idx] = (count / emit_sum).max(1e-10).ln();
                 }
             }
         }

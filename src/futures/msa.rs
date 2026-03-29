@@ -294,28 +294,213 @@ pub fn build_upgma_tree(distances: &DistanceMatrix) -> Result<String, MsaError> 
     Ok(format!("({})", clusters[0].iter().map(|&i| format!("seq{}", i)).collect::<Vec<_>>().join(",")))
 }
 
-/// Align sequences to profile
+/// Align a single sequence to a profile using Smith-Waterman on PSSM
 pub fn align_to_profile(sequence: &Protein, profile: &Profile) -> Result<String, MsaError> {
     if sequence.is_empty() || profile.pssm.is_empty() {
         return Err(MsaError::AlignmentFailed("Invalid input".to_string()));
     }
 
-    // Simple profile alignment: match to highest scoring position
-    let mut aligned = String::new();
-    for aa in sequence.sequence() {
-        let aa_idx = aa.index();
-        let _max_pos = profile.pssm.iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| {
-                a[aa_idx].partial_cmp(&b[aa_idx]).unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .map(|(i, _)| i)
-            .unwrap_or(0);
-
-        aligned.push(aa.to_code());
+    let seq = sequence.sequence();
+    let m = seq.len();
+    let n = profile.pssm.len();
+    
+    // Smith-Waterman DP between sequence and profile
+    let mut dp = vec![vec![0.0f32; n + 1]; m + 1];
+    let mut traceback = vec![vec![0usize; n + 1]; m + 1];
+    
+    // Gap parameters
+    const GAP_OPEN: f32 = -11.0;
+    const GAP_EXTEND: f32 = -1.0;
+    
+    // Fill DP matrix
+    for i in 1..=m {
+        for j in 1..=n {
+            let aa = seq[i - 1];
+            let aa_idx = aa.index();
+            
+            // Match: sequence character score against profile column
+            let match_score = dp[i - 1][j - 1] + profile.pssm[j - 1][aa_idx];
+            
+            // Vertical gap (insertion in sequence)
+            let del_score = dp[i - 1][j] + if traceback[i - 1][j] == 2 {
+                GAP_EXTEND
+            } else {
+                GAP_OPEN
+            };
+            
+            // Horizontal gap (deletion from profile)
+            let ins_score = dp[i][j - 1] + if traceback[i][j - 1] == 1 {
+                GAP_EXTEND
+            } else {
+                GAP_OPEN
+            };
+            
+            // Take max (Smith-Waterman)
+            if match_score >= del_score && match_score >= ins_score && match_score > 0.0 {
+                dp[i][j] = match_score;
+                traceback[i][j] = 0; // Match
+            } else if del_score >= ins_score && del_score > 0.0 {
+                dp[i][j] = del_score;
+                traceback[i][j] = 1; // Deletion
+            } else if ins_score > 0.0 {
+                dp[i][j] = ins_score;
+                traceback[i][j] = 2; // Insertion
+            } else {
+                dp[i][j] = 0.0;
+                traceback[i][j] = 3; // Reset
+            }
+        }
     }
-
+    
+    // Traceback to generate alignment
+    let mut i = m;
+    let mut j = n;
+    let mut aligned = String::new();
+    let mut profile_aligned = String::new();
+    
+    while i > 0 || j > 0 {
+        if i == 0 {
+            profile_aligned.push('-');
+            aligned.push('-');
+            j -= 1;
+        } else if j == 0 {
+            aligned.push(seq[i - 1].to_code());
+            profile_aligned.push('-');
+            i -= 1;
+        } else {
+            match traceback[i][j] {
+                0 => {
+                    // Match
+                    aligned.push(seq[i - 1].to_code());
+                    profile_aligned.push('*');
+                    i -= 1;
+                    j -= 1;
+                }
+                1 => {
+                    // Deletion from profile (gap in profile)
+                    aligned.push(seq[i - 1].to_code());
+                    profile_aligned.push('-');
+                    i -= 1;
+                }
+                2 => {
+                    // Insertion in profile (gap in sequence)
+                    aligned.push('-');
+                    profile_aligned.push('.');
+                    j -= 1;
+                }
+                _ => {
+                    // Reset - start new alignment
+                    break;
+                }
+            }
+        }
+    }
+    
+    let mut aligned_chars: Vec<char> = aligned.chars().collect();
+    aligned_chars.reverse();
+    let aligned = aligned_chars.iter().collect::<String>();
     Ok(aligned)
+}
+
+/// True profile-to-profile DP alignment
+pub fn align_profiles(profile1: &Profile, profile2: &Profile, gap_open: f32, gap_extend: f32) -> Result<(String, String, f32), MsaError> {
+    if profile1.pssm.is_empty() || profile2.pssm.is_empty() {
+        return Err(MsaError::AlignmentFailed("Empty profiles".to_string()));
+    }
+    
+    let m = profile1.pssm.len();
+    let n = profile2.pssm.len();
+    
+    // DP matrix
+    let mut dp = vec![vec![0.0f32; n + 1]; m + 1];
+    let mut traceback = vec![vec![0usize; n + 1]; m + 1];
+    
+    // Fill DP matrix
+    for i in 1..=m {
+        for j in 1..=n {
+            // Score between profile columns (sum of products)
+            let mut col_score = 0.0f32;
+            for aa_idx in 0..24.min(profile1.pssm[i - 1].len().min(profile2.pssm[j - 1].len())) {
+                col_score += profile1.pssm[i - 1][aa_idx] * profile2.pssm[j - 1][aa_idx];
+            }
+            
+            // Match
+            let match_score = dp[i - 1][j - 1] + col_score;
+            
+            // Gap in profile1
+            let del_score = dp[i - 1][j] + if traceback[i - 1][j] == 1 {
+                gap_extend
+            } else {
+                gap_open
+            };
+            
+            // Gap in profile2
+            let ins_score = dp[i][j - 1] + if traceback[i][j - 1] == 2 {
+                gap_extend
+            } else {
+                gap_open
+            };
+            
+            if match_score >= del_score && match_score >= ins_score {
+                dp[i][j] = match_score;
+                traceback[i][j] = 0;
+            } else if del_score >= ins_score {
+                dp[i][j] = del_score;
+                traceback[i][j] = 1;
+            } else {
+                dp[i][j] = ins_score;
+                traceback[i][j] = 2;
+            }
+        }
+    }
+    
+    // Traceback
+    let mut prof1_align = String::new();
+    let mut prof2_align = String::new();
+    let mut i = m;
+    let mut j = n;
+    
+    while i > 0 || j > 0 {
+        if i == 0 {
+            prof1_align.push('-');
+            prof2_align.push(if j > 0 { 'P' } else { '-' });
+            j = j.saturating_sub(1);
+        } else if j == 0 {
+            prof1_align.push(if i > 0 { 'P' } else { '-' });
+            prof2_align.push('-');
+            i = i.saturating_sub(1);
+        } else {
+            match traceback[i][j] {
+                0 => {
+                    prof1_align.push('P');
+                    prof2_align.push('P');
+                    i -= 1;
+                    j -= 1;
+                }
+                1 => {
+                    prof1_align.push('P');
+                    prof2_align.push('-');
+                    i -= 1;
+                }
+                _ => {
+                    prof1_align.push('-');
+                    prof2_align.push('P');
+                    j -= 1;
+                }
+            }
+        }
+    }
+    
+    let mut prof1_chars: Vec<char> = prof1_align.chars().collect();
+    prof1_chars.reverse();
+    prof1_align = prof1_chars.iter().collect::<String>();
+    
+    let mut prof2_chars: Vec<char> = prof2_align.chars().collect();
+    prof2_chars.reverse();
+    prof2_align = prof2_chars.iter().collect::<String>();
+    
+    let score = dp[m][n];
+    Ok((prof1_align, prof2_align, score))
 }
 
 /// Build profile from aligned sequences
