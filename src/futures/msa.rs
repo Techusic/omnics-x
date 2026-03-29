@@ -273,7 +273,7 @@ pub fn build_upgma_tree(distances: &DistanceMatrix) -> Result<String, MsaError> 
         clusters.push(new_cluster);
 
         // Recompute distances
-        let old_len = dist_matrix.len();
+        let _old_len = dist_matrix.len();
         dist_matrix = vec![vec![0.0f32; clusters.len()]; clusters.len()];
 
         for i in 0..clusters.len() - 1 {
@@ -304,7 +304,7 @@ pub fn align_to_profile(sequence: &Protein, profile: &Profile) -> Result<String,
     let mut aligned = String::new();
     for aa in sequence.sequence() {
         let aa_idx = aa.index();
-        let max_pos = profile.pssm.iter()
+        let _max_pos = profile.pssm.iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| {
                 a[aa_idx].partial_cmp(&b[aa_idx]).unwrap_or(std::cmp::Ordering::Equal)

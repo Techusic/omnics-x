@@ -31,3 +31,68 @@ Cargo.lock
 # Temporary files
 *.tmp
 *.log
+test_output.txt
+*.bak
+*.backup
+*.swp~
+*.orig
+*~
+
+# Generated documentation
+/doc/
+docs/_build/
+.doctrees/
+
+# Node and JavaScript (if used with web components)
+/node_modules/
+/.npm/
+package-lock.json
+npm-debug.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# macOS specific
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+
+# Windows specific
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# JetBrains IDE additional
+.idea/
+*.iml
+*.pem
+
+# Visual Studio Code additional
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+
+# Temporary scripts and notebooks
+*.ipynb_checkpoints/
+*.ipynb
+scratch/
+temp/
+.tmp/
+
+# Benchmark and profiling artifacts
+*.prof
+*.flame
+perf.data*
+callgrind.out*
+
+# Cargo local overrides
+.cargo/local.json
+
+# OS temp files
+.Tmp/
+$RECYCLE.BIN/

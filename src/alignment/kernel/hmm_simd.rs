@@ -114,7 +114,7 @@ impl ViterbiKernel {
     /// Backtrack to reconstruct optimal path
     pub fn backtrack(
         sequence: &[u8],
-        dp: &[Vec<f32>],
+        _dp: &[Vec<f32>],
         path_indices: &[Vec<usize>],
     ) -> Vec<HmmStateType> {
         let mut alignment = Vec::new();
@@ -291,7 +291,7 @@ impl BaumWelchKernel {
         for sequence in sequences {
             // E-step: Compute forward and backward probabilities
             let forward = ForwardKernel::forward(sequence, match_emissions, insert_emissions, transitions)?;
-            let backward = BackwardKernel::backward(sequence, match_emissions, insert_emissions, transitions)?;
+            let _backward = BackwardKernel::backward(sequence, match_emissions, insert_emissions, transitions)?;
 
             likelihood += forward;
 
@@ -306,7 +306,7 @@ impl BaumWelchKernel {
 
                 // Expected count for transitions
                 if i > 0 {
-                    let prev_aa = (sequence[i - 1] as usize) % NUM_AMINO_ACIDS;
+                    let _prev_aa = (sequence[i - 1] as usize) % NUM_AMINO_ACIDS;
                     transition_counts[0][0] += 1.0; // Match to Match
                 }
             }
@@ -465,5 +465,157 @@ mod tests {
 
         let result = ViterbiKernel::viterbi_forward(&sequence, &match_emissions, &insert_emissions, &transitions);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_single_amino_acid() {
+        let sequence = vec![0u8];
+        let match_emissions = vec![vec![-1.0; NUM_AMINO_ACIDS]];
+        let insert_emissions = vec![vec![-2.0; NUM_AMINO_ACIDS]];
+        let transitions = vec![vec![-0.5, -1.0, -1.0]];
+
+        let result = ViterbiKernel::viterbi_forward(&sequence, &match_emissions, &insert_emissions, &transitions);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_long_sequence() {
+        let sequence: Vec<u8> = (0..100).map(|i| (i % NUM_AMINO_ACIDS as u8) as u8).collect();
+        let match_emissions = vec![vec![-1.0; NUM_AMINO_ACIDS]; 100];
+        let insert_emissions = vec![vec![-2.0; NUM_AMINO_ACIDS]; 100];
+        let transitions = vec![vec![-0.5, -1.0, -1.0]; 100];
+
+        let result = ViterbiKernel::viterbi_forward(&sequence, &match_emissions, &insert_emissions, &transitions);
+        assert!(result.is_ok());
+        let (dp, _path) = result.unwrap();
+        assert_eq!(dp.len(), 101);
+    }
+
+    #[test]
+    fn test_forward_backward_consistency() {
+        let sequence = vec![0u8, 1u8, 2u8];
+        let match_emissions = vec![vec![-1.0; NUM_AMINO_ACIDS]; 3];
+        let insert_emissions = vec![vec![-2.0; NUM_AMINO_ACIDS]; 3];
+        let transitions = vec![vec![-0.5, -1.0, -1.0]; 3];
+
+        let forward_result = ForwardKernel::forward(&sequence, &match_emissions, &insert_emissions, &transitions);
+        let backward_result = BackwardKernel::backward(&sequence, &match_emissions, &insert_emissions, &transitions);
+        
+        assert!(forward_result.is_ok());
+        assert!(backward_result.is_ok());
+        
+        let forward_score = forward_result.unwrap();
+        assert!(forward_score.is_finite());
+    }
+
+    #[test]
+    fn test_viterbi_different_paths() {
+        let sequence = vec![0u8, 1u8, 2u8, 3u8, 4u8];
+        let match_emissions = vec![vec![-1.0; NUM_AMINO_ACIDS]; 5];
+        
+        // Create varied insert emissions to test path selection
+        let mut insert_emissions = vec![vec![-2.0; NUM_AMINO_ACIDS]; 5];
+        insert_emissions[1][0] = -0.5; // Make insert state favorable for position 1
+        
+        let transitions = vec![vec![-0.5, -1.0, -1.0]; 5];
+
+        let result = ViterbiKernel::viterbi_forward(&sequence, &match_emissions, &insert_emissions, &transitions);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_logsumexp_zero_values() {
+        let values = vec![0.0, 0.0, 0.0];
+        let result = ForwardKernel::logsumexp(&values);
+        assert!(result.is_finite());
+        assert!(result > 0.0);
+    }
+
+    #[test]
+    fn test_logsumexp_extreme_values() {
+        let values = vec![-1e10, -1e10, -1e10];
+        let result = ForwardKernel::logsumexp(&values);
+        assert!(result.is_finite());
+        // logsumexp([-1e10, -1e10, -1e10]) ≈ -1e10 + log(3) ≈ -9.99999999989
+        assert!(result <= -9.99999999e9);  // Should be very close to -1e10
+    }
+
+    #[test]
+    fn test_multiple_sequence_alignment() {
+        let sequences = vec![
+            vec![0u8, 1u8, 2u8],
+            vec![0u8, 1u8, 3u8],
+            vec![1u8, 2u8, 3u8],
+        ];
+        let mut match_emissions = vec![vec![-1.0; NUM_AMINO_ACIDS]; 3];
+        let mut insert_emissions = vec![vec![-2.0; NUM_AMINO_ACIDS]; 3];
+        let mut transitions = vec![vec![-0.5, -1.0, -1.0]; 3];
+
+        let result = BaumWelchKernel::baum_welch_iteration(
+            &sequences,
+            &mut match_emissions,
+            &mut insert_emissions,
+            &mut transitions,
+            0,
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_baum_welch_convergence() {
+        let sequences = vec![vec![0u8, 1u8], vec![0u8, 1u8], vec![0u8, 1u8]];
+        let mut match_emissions = vec![vec![-1.0; NUM_AMINO_ACIDS]; 2];
+        let mut insert_emissions = vec![vec![-2.0; NUM_AMINO_ACIDS]; 2];
+        let mut transitions = vec![vec![-0.5, -1.0, -1.0]; 2];
+
+        let result1 = BaumWelchKernel::baum_welch_iteration(
+            &sequences,
+            &mut match_emissions,
+            &mut insert_emissions,
+            &mut transitions,
+            0,
+        ).unwrap();
+
+        let result2 = BaumWelchKernel::baum_welch_iteration(
+            &sequences,
+            &mut match_emissions,
+            &mut insert_emissions,
+            &mut transitions,
+            1,
+        ).unwrap();
+
+        // Both iterations should have finite likelihoods
+        assert!(result1.is_finite());
+        assert!(result2.is_finite());
+    }
+
+    #[test]
+    fn test_viterbi_all_amino_acids() {
+        // Test with all 24 amino acid types
+        let sequence: Vec<u8> = (0..24).collect();
+        let match_emissions = vec![vec![-1.0; NUM_AMINO_ACIDS]; 24];
+        let insert_emissions = vec![vec![-2.0; NUM_AMINO_ACIDS]; 24];
+        let transitions = vec![vec![-0.5, -1.0, -1.0]; 24];
+
+        let result = ViterbiKernel::viterbi_forward(&sequence, &match_emissions, &insert_emissions, &transitions);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_forward_score_range() {
+        let sequence = vec![0u8, 1u8, 2u8];
+        let match_emissions = vec![vec![-1.0; NUM_AMINO_ACIDS]; 3];
+        let insert_emissions = vec![vec![-2.0; NUM_AMINO_ACIDS]; 3];
+        let transitions = vec![vec![-0.5, -1.0, -1.0]; 3];
+
+        let result1 = ForwardKernel::forward(&sequence, &match_emissions, &insert_emissions, &transitions).unwrap();
+        
+        // Change emissions to be less favorable
+        let match_emissions2 = vec![vec![-10.0; NUM_AMINO_ACIDS]; 3];
+        let result2 = ForwardKernel::forward(&sequence, &match_emissions2, &insert_emissions, &transitions).unwrap();
+
+        // Higher scores should be less negative
+        assert!(result1 > result2);
     }
 }

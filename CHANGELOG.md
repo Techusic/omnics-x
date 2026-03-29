@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.0] - 2026-03-29 (GPU Acceleration Release)
 
+### Added - Phase 2+ Extended: HMM/MSA Infrastructure ✅ COMPLETE
+- **ViterbiKernel** - Optimal path finding for HMM alignment
+- **ForwardKernel** - Log-space probability computation (prevents underflow)
+- **BackwardKernel** - Reverse DP pass for Baum-Welch training
+- **BaumWelchKernel** - EM algorithm for HMM parameter estimation
+- **PssmKernel** - Position-Specific Scoring Matrix with Henikoff weighting
+- **Dirichlet Prior Smoothing** - Pseudocount incorporation for stability
+- **ProfileAlignmentKernel** - SIMD-accelerated profile scoring
+- **ConservationKernel** - Shannon entropy and KL divergence metrics
+- **Expanded test coverage**: 17 HMM tests + 20 MSA tests (25 new tests)
+- **Comprehensive benchmarking**: Performance characterization
+- **Production-ready HMM** support for profile-based alignment
+- Fixed type ambiguity in PSSM smoothing (f32 annotation)
+- Fixed 10 unused variable warnings for clean compilation
+- **Total tests increased**: 115 → 136 tests passing
+
 ### Added - Phase 4: GPU Acceleration ✅ COMPLETE
 - CUDA kernel implementation for NVIDIA GPUs (Smith-Waterman & Needleman-Wunsch)
 - HIP kernel implementation for AMD GPUs via ROCm

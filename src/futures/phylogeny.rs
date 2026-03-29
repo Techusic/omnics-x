@@ -215,7 +215,7 @@ impl PhylogeneticTree {
     }
 
     /// Bootstrap analysis
-    pub fn bootstrap(&mut self, replicates: usize) -> Result<&mut Self, PhylogenyError> {
+    pub fn bootstrap(&mut self, _replicates: usize) -> Result<&mut Self, PhylogenyError> {
         // Simplified bootstrap: randomly assign support values
         use std::collections::hash_map::RandomState;
         use std::hash::{BuildHasher, Hasher};

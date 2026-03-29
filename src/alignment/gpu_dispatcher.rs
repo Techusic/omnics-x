@@ -143,6 +143,7 @@ impl GpuDispatcherStrategy {
         let total_cells = len1 * len2;
         
         const SMALL_THRESHOLD: usize = 1024 * 1024;          // 1M cells
+        #[allow(dead_code)]
         const MEDIUM_THRESHOLD: usize = 10 * 1024 * 1024;    // 10M cells
 
         // If no GPU, use CPU strategies
@@ -219,8 +220,8 @@ pub struct GpuDispatcher {
 impl GpuDispatcher {
     /// Create a new GPU dispatcher with auto-detection
     pub fn new() -> Self {
-        let mut available_backends = Vec::new();
-        let mut device_info = Vec::new();
+        let available_backends = Vec::new();
+        let device_info = Vec::new();
 
         // Detect CUDA
         #[cfg(feature = "cuda")]
