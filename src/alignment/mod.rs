@@ -15,6 +15,8 @@ pub mod kernel;
 pub mod batch;
 pub mod bam;
 pub mod gpu_dispatcher;
+pub mod gpu_kernels;
+pub mod cuda_kernels;
 
 pub use bam::{BamFile, BamRecord};
 pub use gpu_dispatcher::{GpuDispatcher, GpuAvailability, AlignmentStrategy, GpuDeviceInfo};
