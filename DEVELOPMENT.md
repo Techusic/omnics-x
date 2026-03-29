@@ -4,7 +4,7 @@
 **Email**: raghavmkota@gmail.com  
 **Repository**: https://github.com/techusic/omnics-x
 
-Complete development documentation for OMICS-SIMD v0.8.0 (production-ready genomic alignment engine).
+Complete development documentation for OMICS-X v0.8.1 (production-ready bioinformatics toolkit with SIMD & GPU acceleration).
 
 ## Quick Start
 

@@ -2,7 +2,7 @@
 
 **Date**: March 29, 2026  
 **Status**: Phase 1 - Hardware-Accelerated Kernel Dispatch (COMPLETE)  
-**Version Target**: 0.4.0 → 1.0.0
+**Version Target**: 0.8.1 (Current) → 1.0.0 (Future)
 
 ---
 

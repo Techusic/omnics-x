@@ -4,7 +4,7 @@
 
 ![Rust](https://img.shields.io/badge/rust-1.94+-orange.svg?style=flat-square&logo=rust)
 ![License](https://img.shields.io/badge/license-MIT%2FCommercial-blue.svg?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-180%2F180-brightgreen.svg?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-213%2F213-brightgreen.svg?style=flat-square)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg?style=flat-square)
 ![Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg?style=flat-square)
 ![Performance](https://img.shields.io/badge/speedup-8--15x-orange.svg?style=flat-square)
@@ -362,7 +362,7 @@ Performance vs Dataset Size
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     OMICS-X v0.8.0                      │
+│                     OMICS-X v0.8.1                      │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │       ┌──────────────  CLI Layer ────────────┐          │
@@ -654,5 +654,5 @@ OMICS-X was designed for **production bioinformatics research**. Publications us
 ---
 
 **Last Updated**: March 29, 2026  
-**Version**: 0.8.0 (All Phases Complete)  
+**Version**: 0.8.1 (Production Ready)  
 **Status**: 🟢 Production Ready

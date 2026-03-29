@@ -2,7 +2,7 @@
 
 **Last Updated**: March 29, 2026  
 **Status**: In Progress  
-**Version**: 0.4.0 → 1.0.0
+**Version**: 0.8.1 → 1.0.0 (Future)
 
 ## Overview
 
