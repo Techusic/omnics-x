@@ -684,8 +684,7 @@ src/alignment/*_enhanced.rs
 Key documentation organized by phase:
 - **[ADVANCED_IMPLEMENTATION_SUMMARY.md](ADVANCED_IMPLEMENTATION_SUMMARY.md)** - Complete technical architecture (all phases)
 - **[PROJECT_COMPLETION_REPORT.md](PROJECT_COMPLETION_REPORT.md)** - Phase statistics and metrics
-- **[PHASE3_ENHANCEMENT_COMPLETION.md](PHASE3_ENHANCEMENT_COMPLETION.md)** - Phase 3 enhancements (topology search, MSA consolidation)
-- **[PHASE3_FINAL_COMPLETION.md](PHASE3_FINAL_COMPLETION.md)** - Build status and backup file inventory
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
 
 ---
 

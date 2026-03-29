@@ -88,8 +88,7 @@ pub struct StJudeSequence {
 
 1. **[st_jude_bridge.rs](src/futures/st_jude_bridge.rs)** - 700 lines with inline documentation
 2. **[ST_JUDE_BRIDGE.md](ST_JUDE_BRIDGE.md)** - 400+ line integration guide
-3. **[STJUDE_EXECUTIVE_SUMMARY.md](STJUDE_EXECUTIVE_SUMMARY.md)** - Executive overview
-4. **[examples/st_jude_integration.rs](examples/st_jude_integration.rs)** - 280 line working example
+3. **[examples/st_jude_integration.rs](examples/st_jude_integration.rs)** - 280 line working example
 
 ### Performance
 

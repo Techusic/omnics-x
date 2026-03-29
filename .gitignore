@@ -55,19 +55,37 @@ docs/_build/
 package-lock.json
 npm-debug.log
 
-# Obsolete/Duplicate Documentation Files (kept only for reference, not tracked)
+# Obsolete/Duplicate Documentation Files (not tracked)
+# Backup files (old versions)
+*_OLD_BACKUP.md
+*_BACKUP.md
+README_OLD_BACKUP.md
+CHANGELOG_OLD_BACKUP.md
+
+# Redundant Phase files (keep current phase docs only)
 PHASE1_IMPLEMENTATION.md
 PHASE2_COMPLETION_REPORT.md
 PHASE3_ENHANCEMENT_PLAN.md
+PHASE3_ENHANCEMENT_COMPLETION.md
+PHASE3_FINAL_COMPLETION.md
 PHASE4_GPU_PLAN.md
 PHASE4_PROGRESS_REPORT.md
+PHASE_1_STATUS.md
+
+# Redundant summary files
 COMPLETION_REPORT.md
 IMPLEMENTATION_SUMMARY.md
 SESSION_SUMMARY.md
 ROADMAP_ENHANCEMENTS.md
 ENHANCEMENT_ROADMAP.md
 DOCUMENTATION_INDEX.md
-PHASE_1_STATUS.md
+
+# Duplicate integration files
+STJUDE_EXECUTIVE_SUMMARY.md
+ST_JUDE_INTEGRATION_SUMMARY.md
+
+# Redundant GPU files
+GPU_JIT_COMPILER_ENHANCED.md
 
 # Build and Benchmark Output
 benchmark_results.txt

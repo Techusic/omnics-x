@@ -374,7 +374,7 @@ fn main() -> Result<()> {
 5. **Benchmarking**: Measure throughput improvements
 
 For more details, see:
-- [ENHANCEMENT_ROADMAP.md](ENHANCEMENT_ROADMAP.md)
-- [PHASE1_IMPLEMENTATION.md](PHASE1_IMPLEMENTATION.md)
+- [DEVELOPMENT.md](DEVELOPMENT.md) - Developer workflow
+- [ADVANCED_IMPLEMENTATION_SUMMARY.md](ADVANCED_IMPLEMENTATION_SUMMARY.md) - Technical architecture
 - API documentation: `cargo doc --open`
 
