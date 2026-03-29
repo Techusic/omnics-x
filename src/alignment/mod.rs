@@ -20,41 +20,27 @@ pub mod cuda_kernels;
 pub mod cuda_device_context;
 pub mod cuda_runtime;
 pub mod kernel_compiler;
+pub mod hmmer3_parser;
+pub mod simd_viterbi;
+pub mod profile_dp;
+pub mod gpu_memory;
+pub mod cigar_gen;
 
 pub use bam::{BamFile, BamRecord};
 pub use gpu_dispatcher::{GpuDispatcher, GpuAvailability, AlignmentStrategy, GpuDeviceInfo};
 pub use cuda_device_context::CudaDeviceContext;
 pub use cuda_runtime::{GpuRuntime, GpuBuffer};
 pub use kernel_compiler::{KernelCompiler, KernelType, CompiledKernel, KernelCache};
+pub use hmmer3_parser::{HmmerModel, HmmerError, KarlinParameters};
+pub use simd_viterbi::{ViterbiDecoder, ViterbiPath};
+pub use profile_dp::{Pssm, ProfileAlignment, align_profiles};
+pub use gpu_memory::{GpuMemoryPool, MultiGpuMemory, MemoryAllocation};
+pub use cigar_gen::{CigarString, CigarOp, traceback_to_cigar};
 
 use crate::error::{Error, Result};
 use crate::protein::{Protein, AminoAcid};
 use crate::scoring::{ScoringMatrix, AffinePenalty};
 use serde::{Deserialize, Serialize};
-
-/// CIGAR operation for representing alignment strings (SAM/BAM format)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CigarOp {
-    Match,      // M - sequence match (can be sequence match or mismatch)
-    Insert,     // I - insertion to the reference
-    Delete,     // D - deletion from the reference
-    Skip,       // N - skipped region from the reference
-    Equals,     // = - sequence match
-    Diff,       // X - sequence mismatch
-}
-
-impl std::fmt::Display for CigarOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CigarOp::Match => write!(f, "M"),
-            CigarOp::Insert => write!(f, "I"),
-            CigarOp::Delete => write!(f, "D"),
-            CigarOp::Skip => write!(f, "N"),
-            CigarOp::Equals => write!(f, "="),
-            CigarOp::Diff => write!(f, "X"),
-        }
-    }
-}
 
 /// Represents a CIGAR string (Compact Idiosyncratic Gapped Alignment Report)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,7 +95,7 @@ impl Cigar {
         self.operations
             .iter()
             .filter_map(|(count, op)| match op {
-                CigarOp::Match | CigarOp::Insert | CigarOp::Equals | CigarOp::Diff => Some(count),
+                CigarOp::Match | CigarOp::Insertion | CigarOp::SeqMatch | CigarOp::SeqMismatch => Some(count),
                 _ => None,
             })
             .sum::<u32>()
@@ -120,7 +106,7 @@ impl Cigar {
         self.operations
             .iter()
             .filter_map(|(count, op)| match op {
-                CigarOp::Match | CigarOp::Delete | CigarOp::Skip | CigarOp::Equals | CigarOp::Diff => Some(count),
+                CigarOp::Match | CigarOp::Deletion | CigarOp::Skip | CigarOp::SeqMatch | CigarOp::SeqMismatch => Some(count),
                 _ => None,
             })
             .sum::<u32>()
@@ -396,10 +382,10 @@ impl AlignmentResult {
         
         for (a, b) in self.aligned_seq1.chars().zip(self.aligned_seq2.chars()) {
             match (a, b) {
-                ('-', _) => cigar.push(1, CigarOp::Delete),
-                (_, '-') => cigar.push(1, CigarOp::Insert),
-                (c1, c2) if c1 == c2 => cigar.push(1, CigarOp::Equals),
-                _ => cigar.push(1, CigarOp::Diff),
+                ('-', _) => cigar.push(1, CigarOp::Deletion),
+                (_, '-') => cigar.push(1, CigarOp::Insertion),
+                (c1, c2) if c1 == c2 => cigar.push(1, CigarOp::SeqMatch),
+                _ => cigar.push(1, CigarOp::SeqMismatch),
             }
         }
 
@@ -844,7 +830,7 @@ mod tests {
     fn test_cigar_operations() {
         let mut cigar = Cigar::new();
         cigar.push(5, CigarOp::Match);
-        cigar.push(2, CigarOp::Insert);
+        cigar.push(2, CigarOp::Insertion);
         cigar.push(3, CigarOp::Match);
 
         let cigar_str = cigar.to_string();
@@ -855,7 +841,7 @@ mod tests {
     fn test_cigar_coalesce() {
         let mut cigar = Cigar::new();
         cigar.push(2, CigarOp::Match);
-        cigar.push(1, CigarOp::Insert);
+        cigar.push(1, CigarOp::Insertion);
         cigar.push(3, CigarOp::Match);
         cigar.push(2, CigarOp::Match); // Should coalesce with previous
 
@@ -867,9 +853,9 @@ mod tests {
     #[test]
     fn test_cigar_lengths() {
         let mut cigar = Cigar::new();
-        cigar.push(5, CigarOp::Equals);
-        cigar.push(2, CigarOp::Insert);
-        cigar.push(3, CigarOp::Delete);
+        cigar.push(5, CigarOp::SeqMatch);
+        cigar.push(2, CigarOp::Insertion);
+        cigar.push(3, CigarOp::Deletion);
         cigar.push(1, CigarOp::Match);
 
         assert_eq!(cigar.query_length(), 8);      // M=5, I=2, M=1
