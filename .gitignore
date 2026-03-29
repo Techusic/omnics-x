@@ -49,6 +49,35 @@ docs/_build/
 package-lock.json
 npm-debug.log
 
+# Obsolete/Duplicate Documentation Files (kept only for reference, not tracked)
+PHASE1_IMPLEMENTATION.md
+PHASE2_COMPLETION_REPORT.md
+PHASE3_ENHANCEMENT_PLAN.md
+PHASE4_GPU_PLAN.md
+PHASE4_PROGRESS_REPORT.md
+COMPLETION_REPORT.md
+IMPLEMENTATION_SUMMARY.md
+SESSION_SUMMARY.md
+ROADMAP_ENHANCEMENTS.md
+ENHANCEMENT_ROADMAP.md
+DOCUMENTATION_INDEX.md
+PHASE_1_STATUS.md
+
+# Build and Benchmark Output
+benchmark_results.txt
+test_output.txt
+*.csv
+perf_results.json
+
+# IDE and Editor Configuration (if created locally)
+.vscode/settings.json
+.vscode/launch.json
+.idea/workspace.xml
+
+# Dependency Caches
+.cargo/
+Cargo.lock
+
 # Python cache
 __pycache__/
 *.pyc
