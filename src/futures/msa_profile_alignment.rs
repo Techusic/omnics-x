@@ -221,6 +221,133 @@ pub struct ProfileAlignment {
     pub score: f32,
 }
 
+impl ProfileAlignmentState {
+    /// Align two profiles together (profile-to-profile for progressive MSA)
+    pub fn align_profile_to_profile(
+        &self,
+        other: &ProfileAlignmentState,
+        gap_open: f32,
+        gap_extend: f32,
+    ) -> ProfileAlignment {
+        let m = self.pssm.len() + 1;
+        let n = other.pssm.len() + 1;
+
+        // DP matrices for profile-profile alignment
+        let mut dp_match = vec![vec![f32::NEG_INFINITY; n]; m];
+        let mut dp_gap_profile1 = vec![vec![f32::NEG_INFINITY; n]; m];
+        let mut dp_gap_profile2 = vec![vec![f32::NEG_INFINITY; n]; m];
+
+        // Initialize
+        dp_match[0][0] = 0.0;
+        for i in 1..m {
+            dp_gap_profile1[i][0] = -gap_open - (i - 1) as f32 * gap_extend;
+        }
+        for j in 1..n {
+            dp_gap_profile2[0][j] = -gap_open - (j - 1) as f32 * gap_extend;
+        }
+
+        // Fill DP matrices - compare PSSMs position by position
+        for i in 1..m {
+            for j in 1..n {
+                // Match score: correlation between position-specific profiles
+                let mut match_score = 0.0;
+                if i - 1 < self.pssm.len() && j - 1 < other.pssm.len() {
+                    // Compute score as correlation of position vectors
+                    let prof1 = &self.pssm[i - 1];
+                    let prof2 = &other.pssm[j - 1];
+
+                    for aa in 0..prof1.len().min(prof2.len()) {
+                        match_score += prof1[aa] * prof2[aa];
+                    }
+                }
+
+                // DP recurrence
+                dp_match[i][j] = (dp_match[i - 1][j - 1]
+                    .max(dp_gap_profile1[i - 1][j - 1])
+                    .max(dp_gap_profile2[i - 1][j - 1]))
+                    + match_score;
+
+                dp_gap_profile1[i][j] = dp_match[i - 1][j] - gap_open;
+                dp_gap_profile1[i][j] = dp_gap_profile1[i - 1][j] - gap_extend
+                    .max(dp_gap_profile1[i][j]);
+
+                dp_gap_profile2[i][j] = dp_match[i][j - 1] - gap_open;
+                dp_gap_profile2[i][j] = dp_gap_profile2[i][j - 1] - gap_extend
+                    .max(dp_gap_profile2[i][j]);
+            }
+        }
+
+        // Traceback
+        let mut profile1_align = String::new();
+        let mut profile2_align = String::new();
+        let mut i = m - 1;
+        let mut j = n - 1;
+
+        while i > 0 && j > 0 {
+            let current_match = dp_match[i][j];
+            let current_gap_p1 = dp_gap_profile1[i][j];
+            let current_gap_p2 = dp_gap_profile2[i][j];
+
+            if current_match >= current_gap_p1 && current_match >= current_gap_p2 {
+                profile1_align.push(if i - 1 < self.sequences.len() {
+                    self.sequences[i - 1].chars().next().unwrap_or('-')
+                } else {
+                    '-'
+                });
+                profile2_align.push(if j - 1 < other.sequences.len() {
+                    other.sequences[j - 1].chars().next().unwrap_or('-')
+                } else {
+                    '-'
+                });
+                i -= 1;
+                j -= 1;
+            } else if current_gap_p1 >= current_gap_p2 {
+                profile1_align.push(if i - 1 < self.sequences.len() {
+                    self.sequences[i - 1].chars().next().unwrap_or('-')
+                } else {
+                    '-'
+                });
+                profile2_align.push('-');
+                i -= 1;
+            } else {
+                profile1_align.push('-');
+                profile2_align.push(if j - 1 < other.sequences.len() {
+                    other.sequences[j - 1].chars().next().unwrap_or('-')
+                } else {
+                    '-'
+                });
+                j -= 1;
+            }
+        }
+
+        while i > 0 {
+            profile1_align.push(if i - 1 < self.sequences.len() {
+                self.sequences[i - 1].chars().next().unwrap_or('-')
+            } else {
+                '-'
+            });
+            i -= 1;
+        }
+        while j > 0 {
+            profile2_align.push(if j - 1 < other.sequences.len() {
+                other.sequences[j - 1].chars().next().unwrap_or('-')
+            } else {
+                '-'
+            });
+            j -= 1;
+        }
+
+        profile1_align = profile1_align.chars().rev().collect();
+        profile2_align = profile2_align.chars().rev().collect();
+
+        ProfileAlignment {
+            profile_alignment: profile1_align,
+            query_alignment: profile2_align,
+            score: dp_match[m - 1][n - 1],
+        }
+    }
+}
+
 /// Convert amino acid to index (0-19)
 fn aa_to_index(ch: char) -> usize {
     match ch.to_ascii_uppercase() {
@@ -288,6 +415,40 @@ mod tests {
         let sequences = vec!["ACGT".to_string()];
         let profile = ProfileAlignmentState::new(sequences).unwrap();
         let result = profile.align_profile_to_sequence("ACGT", 1.0, 0.5);
+        assert!(result.score.is_finite());
+    }
+
+    #[test]
+    fn test_profile_to_profile_alignment() {
+        let profile1 = ProfileAlignmentState::new(vec!["ACGT".to_string()]).unwrap();
+        let profile2 = ProfileAlignmentState::new(vec!["ACGT".to_string()]).unwrap();
+        let result = profile1.align_profile_to_profile(&profile2, 1.0, 0.5);
+        assert!(result.score.is_finite());
+        assert!(!result.profile_alignment.is_empty());
+        assert!(!result.query_alignment.is_empty());
+    }
+
+    #[test]
+    fn test_profile_to_profile_different_lengths() {
+        let profile1 = ProfileAlignmentState::new(vec!["ACGTACGT".to_string()]).unwrap();
+        let profile2 = ProfileAlignmentState::new(vec!["ACGT".to_string()]).unwrap();
+        let result = profile1.align_profile_to_profile(&profile2, 2.0, 1.0);
+        assert!(result.score.is_finite());
+        // Lengths should account for gaps
+        assert!(result.profile_alignment.len() >= profile1.pssm.len().saturating_sub(1));
+    }
+
+    #[test]
+    fn test_profile_to_profile_multiple_sequences() {
+        let profile1 = ProfileAlignmentState::new(vec![
+            "ACGT".to_string(),
+            "AGGT".to_string(),
+        ]).unwrap();
+        let profile2 = ProfileAlignmentState::new(vec![
+            "ACGT".to_string(),
+            "AAAA".to_string(),
+        ]).unwrap();
+        let result = profile1.align_profile_to_profile(&profile2, 1.0, 0.5);
         assert!(result.score.is_finite());
     }
 }

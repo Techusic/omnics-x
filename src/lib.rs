@@ -1,10 +1,10 @@
-//! # Omnics-X: High-Performance Sequence Alignment Library
+//! # omicsx: High-Performance Sequence Alignment Library
 //!
 //! A Rust library providing SIMD-accelerated sequence alignment algorithms
 //! for petabyte-scale genomic data processing.
 //!
 //! **Author**: Raghav Maheshwari (@techusic)  
-//! **Repository**: <https://github.com/techusic/omnics-x>  
+//! **Repository**: <https://github.com/techusic/omicsx>  
 //! **License**: MIT
 //!
 //! ## Features ✅

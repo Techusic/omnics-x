@@ -2,7 +2,7 @@
 
 **Maintained by**: Raghav Maheshwari (@techusic)  
 **Email**: raghavmkota@gmail.com  
-**Repository**: https://github.com/techusic/omnics-x
+**Repository**: https://github.com/techusic/omicsx
 
 Complete development documentation for OMICS-X v0.8.1 (production-ready bioinformatics toolkit with SIMD & GPU acceleration).
 
@@ -10,8 +10,8 @@ Complete development documentation for OMICS-X v0.8.1 (production-ready bioinfor
 
 ```bash
 # Clone and setup
-git clone https://github.com/techusic/omnics-x.git
-cd omnics-x
+git clone https://github.com/techusic/omicsx.git
+cd omicsx
 cargo build --release
 
 # Run full test suite

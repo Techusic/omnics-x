@@ -292,4 +292,4 @@ cargo fmt --check
 **Last Updated**: March 29, 2026  
 **Author**: Raghav Maheshwari (@techusic)  
 **Email**: raghavmkota@gmail.com  
-**Repository**: https://github.com/techusic/omnics-x
+**Repository**: https://github.com/techusic/omicsx

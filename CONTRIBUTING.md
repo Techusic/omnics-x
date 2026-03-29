@@ -1,10 +1,10 @@
-# Contributing to Omnics-X
+# Contributing to omicsx
 
 **Maintained by**: Raghav Maheshwari (@techusic)  
 **Email**: raghavmkota@gmail.com  
-**Repository**: https://github.com/techusic/omnics-x
+**Repository**: https://github.com/techusic/omicsx
 
-Thank you for your interest in contributing to Omnics-X! This document provides guidelines and procedures for contributing.
+Thank you for your interest in contributing to omicsx! This document provides guidelines and procedures for contributing.
 
 ## Code of Conduct
 
@@ -12,8 +12,8 @@ Be respectful, inclusive, and professional in all interactions.
 
 ## Getting Started
 
-1. Fork the repository: https://github.com/techusic/omnics-x/fork
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/omnics-x.git`
+1. Fork the repository: https://github.com/techusic/omicsx/fork
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/omicsx.git`
 3. Create a feature branch: `git checkout -b feature/your-feature-name`
 4. Set up your environment: `cargo build --release`
 
@@ -166,7 +166,7 @@ src/
 
 ## Licensing
 
-By contributing to Omnics-X, you agree that your contributions will be made available under:
+By contributing to omicsx, you agree that your contributions will be made available under:
 - **MIT License** for non-commercial use
 - **Dual commercial license** as part of the project's commercial licensing model
 

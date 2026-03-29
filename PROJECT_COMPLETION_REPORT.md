@@ -447,7 +447,7 @@ The project achieves its goal of enabling **petabyte-scale genomic analysis** wi
 **Project**: OMICS-X - High-Performance Bioinformatics Toolkit  
 **Author**: Raghav Maheshwari  
 **Email**: raghavmkota@gmail.com  
-**Repository**: https://github.com/techusic/omnics-x  
+**Repository**: https://github.com/techusic/omicsx  
 **License**: MIT OR Commercial  
 
 **Project Status**: ✅ **PRODUCTION READY** - v0.7.0+ (All Phases Complete)

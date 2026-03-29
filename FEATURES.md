@@ -1,7 +1,7 @@
-# Omnics-X: Complete Feature Reference
+# omicsx: Complete Feature Reference
 
 ## 🎯 Project Overview
-**Omnics-X** is a production-ready, SIMD-accelerated bioinformatics toolkit implementing cutting-edge genomic analysis algorithms with GPU support.
+**omicsx** is a production-ready, SIMD-accelerated bioinformatics toolkit implementing cutting-edge genomic analysis algorithms with GPU support.
 
 ---
 

@@ -1,4 +1,4 @@
-# 🧬 Omnics-X: Vectorizing Genomics with SIMD Acceleration
+# 🧬 omicsx: Vectorizing Genomics with SIMD Acceleration
 
 <div align="center">
 
@@ -20,7 +20,7 @@
 
 Sequence alignment is the computational cornerstone of bioinformatics. Yet standard dynamic programming approaches (Smith-Waterman, Needleman-Wunsch) become severe bottlenecks when processing massive genomic datasets.
 
-**Omnics-X** solves this by leveraging Single Instruction, Multiple Data (SIMD) intrinsics to parallelize scoring matrix calculations across modern CPU lanes:
+**omicsx** solves this by leveraging Single Instruction, Multiple Data (SIMD) intrinsics to parallelize scoring matrix calculations across modern CPU lanes:
 
 - **AVX2** on x86-64 (8-wide parallelism) 
 - **NEON** on ARM64 (4-wide parallelism)
@@ -206,8 +206,8 @@ omics-simd/
 ### From Source
 
 ```bash
-git clone https://github.com/techusic/omnics-x.git
-cd omnics-x
+git clone https://github.com/techusic/omicsx.git
+cd omicsx
 
 # Build (CPU SIMD only)
 cargo build --release
@@ -227,10 +227,10 @@ cargo test --lib
 
 ```toml
 [dependencies]
-omnics-x = { path = "../omnics-x" }
+omicsx = { path = "../omicsx" }
 
 # For GPU support, enable features:
-# omnics-x = { path = "../omnics-x", features = ["all-gpu"] }
+# omicsx = { path = "../omicsx", features = ["all-gpu"] }
 ```
 
 ### System Requirements
@@ -855,14 +855,14 @@ Please:
 
 ## 📖 Citation
 
-If you use Omnics-X in published research, please cite:
+If you use omicsx in published research, please cite:
 
 ```bibtex
-@software{omnics_x_2026,
-  title = {Omnics-X: Vectorizing Genomics with SIMD Acceleration},
+@software{omicsx_2026,
+  title = {omicsx: Vectorizing Genomics with SIMD Acceleration},
   author = {Raghav Maheshwari},
   year = {2026},
-  url = {https://github.com/techusic/omnics-x}
+  url = {https://github.com/techusic/omicsx}
 }
 ```
 

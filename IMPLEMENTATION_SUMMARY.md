@@ -253,7 +253,7 @@ omics-x hmm-search --pfam Pfam-A.hmm query.fasta --evalue 1e-10
 
 ### Quick Build
 ```bash
-cd omnics-x
+cd omicsx
 cargo build --release
 ```
 
@@ -395,7 +395,7 @@ Q2 2026 (Planned)
 
 **Lead Developer**: Raghav Maheshwari (@techusic)  
 **Email**: raghavmkota@gmail.com  
-**Repository**: https://github.com/techusic/omnics-x  
+**Repository**: https://github.com/techusic/omicsx  
 **License**: MIT OR Commercial
 
 **Contributing**:

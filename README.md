@@ -461,8 +461,8 @@ src/
 ### Installation
 
 ```bash
-git clone https://github.com/techusic/omnics-x.git
-cd omnics-x
+git clone https://github.com/techusic/omicsx.git
+cd omicsx
 
 # CPU SIMD only (fast build)
 cargo build --release
@@ -632,7 +632,7 @@ OMICS-X was designed for **production bioinformatics research**. Publications us
   title={OMICS-X: SIMD-Accelerated Sequence Alignment for Petabyte-Scale Genomic Analysis},
   author={Maheshwari, Raghav},
   year={2026},
-  url={https://github.com/techusic/omnics-x},
+  url={https://github.com/techusic/omicsx},
   license={MIT / Commercial}
 }
 ```

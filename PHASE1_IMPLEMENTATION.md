@@ -459,7 +459,7 @@ cargo build --release --features all-gpu
 
 **Project Lead**: Raghav Maheshwari (@techusic)  
 **Email**: raghavmkota@gmail.com  
-**Repository**: https://github.com/techusic/omnics-x  
+**Repository**: https://github.com/techusic/omicsx  
 **Issues/PRs**: Welcome on GitHub
 
 ---

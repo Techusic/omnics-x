@@ -170,7 +170,7 @@ See [ENHANCEMENT_ROADMAP.md](ENHANCEMENT_ROADMAP.md) for:
 ## 🗂️ File Structure Reference
 
 ```
-omnics-x/
+omicsx/
 ├── README.md                           👈 Start here
 ├── FEATURES.md                         What's included
 ├── DEVELOPMENT.md                      Build & setup
@@ -267,8 +267,8 @@ omnics-x/
 ## 📞 Support & Contact
 
 **Technical Questions**
-- GitHub Issues: https://github.com/techusic/omnics-x/issues
-- GitHub Discussions: https://github.com/techusic/omnics-x/discussions
+- GitHub Issues: https://github.com/techusic/omicsx/issues
+- GitHub Discussions: https://github.com/techusic/omicsx/discussions
 
 **Security Issues** (Confidential)
 - See [SECURITY.md](SECURITY.md)
@@ -360,4 +360,4 @@ Code: MIT OR Commercial
 
 **Last Updated**: March 29, 2026  
 **Maintained By**: @techusic  
-**Repository**: https://github.com/techusic/omnics-x
+**Repository**: https://github.com/techusic/omicsx
