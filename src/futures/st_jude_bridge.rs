@@ -58,6 +58,7 @@ use crate::protein::{AminoAcid, Protein};
 use crate::futures::cli_file_io::SeqRecord;
 use crate::alignment::Cigar;
 use crate::scoring::{ScoringMatrix, MatrixType, AffinePenalty};
+use crate::alignment::hmmer3_parser::KarlinParameters;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -528,6 +529,8 @@ impl StJudeBridge {
     // ==================== Alignment Conversions ====================
 
     /// Convert OMICS-SIMD AlignmentResult to St. Jude alignment
+    /// Convert alignment result to St. Jude format with accurate statistical scoring
+    /// Uses model-specific Karlin-Altschul parameters for proper bit score calculation
     pub fn to_st_jude_alignment(
         &self,
         query_id: &str,
@@ -536,6 +539,7 @@ impl StJudeBridge {
         cigar: &Cigar,
         query_string: &str,
         subject_string: &str,
+        karlin_params: &KarlinParameters,
     ) -> Result<StJudeAlignment> {
         // Calculate alignment metrics from CIGAR
         let alignment_length = cigar.query_length();
@@ -561,14 +565,13 @@ impl StJudeBridge {
             0.0
         };
 
-        // Rough estimation of E-value and bit score
-        let evalue = if score > 0 {
-            (score as f64).exp() * 1e-3 // Simplified
-        } else {
-            1.0
-        };
-
-        let bit_score = (score as f64 * 0.301 - 0.5) / 1.44; // Simplified Karlin-Altschul
+        // Calculate bit score using Karlin-Altschul parameters from model
+        let bit_score = karlin_params.bit_score(score as f64);
+        
+        // Calculate E-value assuming standard database size of 1 billion sequences
+        // (this should ideally be passed in for the actual database size)
+        let db_size = 1_000_000_000u64; // 1 billion is typical for protein DB
+        let evalue = karlin_params.evalue(bit_score, db_size);
 
         Ok(StJudeAlignment {
             query_id: query_id.to_string(),
@@ -742,6 +745,7 @@ mod tests {
     #[test]
     fn test_alignment_conversion() -> Result<()> {
         let bridge = StJudeBridge::new(BridgeConfig::default());
+        let karlin = KarlinParameters::default_protein();
 
         let cigar = crate::alignment::Cigar::new();
         let alignment = bridge.to_st_jude_alignment(
@@ -751,6 +755,7 @@ mod tests {
             &cigar,
             "ACDEF",
             "ACGEF",
+            &karlin,
         )?;
 
         assert_eq!(alignment.query_id, "query1");

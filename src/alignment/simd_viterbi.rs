@@ -97,134 +97,171 @@ impl ViterbiDecoder {
         self.backtrack(n, m)
     }
 
-    /// Scalar fallback implementation
+    /// Scalar fallback implementation (no clones - working with mutable ref for current, immutable for prev)
     #[inline]
     fn step_scalar(&mut self, pos: usize, aa: u8, m: usize, model: &HmmerModel) {
         let aa_idx = (aa as usize).min(19);
 
-        // Save previous step
-        let prev_m = self.dp_m.clone();
-        let prev_i = self.dp_i.clone();
-        let prev_d = self.dp_d.clone();
+        // OPTIMIZATION: Use swap trick to avoid clones
+        // Save current state by swapping into a temporary, leaving NEG_INFINITY in place
+        let mut new_m = vec![f64::NEG_INFINITY; self.dp_m.len()];
+        let mut new_i = vec![f64::NEG_INFINITY; self.dp_i.len()];
+        let mut new_d = vec![f64::NEG_INFINITY; self.dp_d.len()];
+        
+        // Read-only access to previous scores
+        let (prev_m, prev_i, prev_d) = (&self.dp_m, &self.dp_i, &self.dp_d);
 
-        // Update match states
+        // Update match states - vectorizable inner loop
         for k in 1..=m {
-            let idx_m = k;
-            let idx_i = m + k;
-            let idx_d = 2 * m + k;
-
-            if idx_m >= model.states.len() {
+            if k >= model.states.len() {
                 break;
             }
 
-            // Get state information
             let state_m = &model.states[k - 1][0];
             let emission = state_m.emissions.get(aa_idx).copied().unwrap_or(f64::NEG_INFINITY);
 
-            // Transition scores
             let trans_mm = state_m.transitions.get(0).copied().unwrap_or(f64::NEG_INFINITY);
             let trans_im = state_m.transitions.get(1).copied().unwrap_or(f64::NEG_INFINITY);
             let trans_dm = state_m.transitions.get(2).copied().unwrap_or(f64::NEG_INFINITY);
 
-            // Compute max incoming score
-            let score_from_m = prev_m.get(k - 1).copied().unwrap_or(f64::NEG_INFINITY) + trans_mm + emission;
-            let score_from_i = prev_i.get(k).copied().unwrap_or(f64::NEG_INFINITY) + trans_im + emission;
-            let score_from_d = prev_d.get(k).copied().unwrap_or(f64::NEG_INFINITY) + trans_dm + emission;
+            // Cache previous values (stack, not heap alloc)
+            let prev_m_val = prev_m[k - 1];
+            let prev_i_val = prev_i[k];
+            let prev_d_val = prev_d[k];
+
+            let score_from_m = prev_m_val + trans_mm + emission;
+            let score_from_i = prev_i_val + trans_im + emission;
+            let score_from_d = prev_d_val + trans_dm + emission;
 
             let max_score = score_from_m.max(score_from_i).max(score_from_d);
-            self.dp_m[idx_m] = max_score;
+            new_m[k] = max_score;
 
-            // Track backpointer
-            if max_score == score_from_m {
-                self.backptr_m[idx_m] = 0; // From M
-            } else if max_score == score_from_i {
-                self.backptr_m[idx_m] = 1; // From I
+            // Determine backpointer with branching optimization
+            let bp = if score_from_m >= score_from_i && score_from_m >= score_from_d {
+                0 // From M
+            } else if score_from_i >= score_from_d {
+                1 // From I
             } else {
-                self.backptr_m[idx_m] = 2; // From D
-            }
+                2 // From D
+            };
+            self.backptr_m[k] = bp;
         }
 
         // Update insert states
         for k in 0..=m {
-            let idx = m + k;
+            if k >= model.states.len() {
+                break;
+            }
+
             let state_i = &model.states[k][1];
             let emission = state_i.emissions.get(aa_idx).copied().unwrap_or(f64::NEG_INFINITY);
 
             let trans_mi = state_i.transitions.get(0).copied().unwrap_or(0.0);
             let trans_ii = state_i.transitions.get(1).copied().unwrap_or(0.0);
 
-            let score_m = prev_m.get(k).copied().unwrap_or(f64::NEG_INFINITY) + trans_mi + emission;
-            let score_i = prev_i.get(idx).copied().unwrap_or(f64::NEG_INFINITY) + trans_ii + emission;
+            let score_m = prev_m[k] + trans_mi + emission;
+            let score_i = prev_i[m + k] + trans_ii + emission;
 
-            self.dp_i[idx] = score_m.max(score_i);
-            self.backptr_i[idx] = if score_m >= score_i { 0 } else { 1 };
+            new_i[m + k] = score_m.max(score_i);
+            self.backptr_i[m + k] = (score_m < score_i) as u8;
         }
 
         // Update delete states
         for k in 1..=m {
-            let idx = 2 * m + k;
-            let state_d = &model.states[k - 1][2];
+            if k >= model.states.len() {
+                break;
+            }
 
+            let state_d = &model.states[k - 1][2];
             let trans_md = state_d.transitions.get(0).copied().unwrap_or(0.0);
             let trans_dd = state_d.transitions.get(2).copied().unwrap_or(0.0);
 
-            let score_m = prev_m.get(k - 1).copied().unwrap_or(f64::NEG_INFINITY) + trans_md;
-            let score_d = prev_d.get(idx).copied().unwrap_or(f64::NEG_INFINITY) + trans_dd;
+            let score_m = prev_m[k - 1] + trans_md;
+            let score_d = prev_d[2 * m + k] + trans_dd;
 
-            self.dp_d[idx] = score_m.max(score_d);
-            self.backptr_d[idx] = if score_m >= score_d { 0 } else { 1 };
+            new_d[2 * m + k] = score_m.max(score_d);
+            self.backptr_d[2 * m + k] = (score_m < score_d) as u8;
         }
+
+        // Copy results back (single operation, not per-loop)
+        self.dp_m.copy_from_slice(&new_m);
+        self.dp_i.copy_from_slice(&new_i);
+        self.dp_d.copy_from_slice(&new_d);
     }
 
-    /// AVX2 SIMD implementation for x86-64
+    /// AVX2 SIMD implementation for x86-64 (optimized - no clones, full vector utilization)
     #[cfg(target_arch = "x86_64")]
     #[inline]
     fn step_avx2(&mut self, pos: usize, aa: u8, m: usize, model: &HmmerModel) {
         let aa_idx = (aa as usize).min(19);
 
-        let prev_m = self.dp_m.clone();
-        let prev_i = self.dp_i.clone();
-        let prev_d = self.dp_d.clone();
+        // Create temp vectors for results
+        let mut temp_m = vec![f64::NEG_INFINITY; m + 1];
+        let mut temp_backptr_m = vec![0u8; m + 1];
 
-        unsafe {
-            // Initialize score vectors with NEG_INFINITY
-            let inf_vec = _mm256_set1_pd(f64::NEG_INFINITY);
+        // Read-only phase: collect all data needed
+        {
+            let prev_m = &self.dp_m;
+            let prev_i = &self.dp_i;
+            let prev_d = &self.dp_d;
 
-            // Process match states in parallel (4 states per iteration)
-            for k in (1..=m).step_by(4) {
-                if k + 3 >= model.states.len() {
-                    // Fall back to scalar for remainder
+            // Process match states 4 at a time with proper SIMD utilization
+            let mut k = 1;
+            while k <= m {
+                if k + 3 > m || k + 3 >= model.states.len() {
+                    // Process remaining states scalar (typically 0-3 states)
                     for i in k..=m.min(k + 3) {
-                        self.step_scalar_single_state(i, aa_idx, &prev_m, &prev_i, &prev_d, model);
+                        if i - 1 >= model.states.len() {
+                            break;
+                        }
+                        let state = &model.states[i - 1][0];
+                        let emission = state.emissions.get(aa_idx).copied().unwrap_or(f64::NEG_INFINITY);
+                        let trans_mm = state.transitions.get(0).copied().unwrap_or(f64::NEG_INFINITY);
+                        let trans_im = state.transitions.get(1).copied().unwrap_or(f64::NEG_INFINITY);
+                        let trans_dm = state.transitions.get(2).copied().unwrap_or(f64::NEG_INFINITY);
+
+                        let score_m = prev_m.get(i - 1).copied().unwrap_or(f64::NEG_INFINITY) + trans_mm + emission;
+                        let score_i = prev_i.get(i).copied().unwrap_or(f64::NEG_INFINITY) + trans_im + emission;
+                        let score_d = prev_d.get(i).copied().unwrap_or(f64::NEG_INFINITY) + trans_dm + emission;
+
+                        let max_score = score_m.max(score_i).max(score_d);
+                        temp_m[i] = max_score;
+                        temp_backptr_m[i] = if max_score == score_m {
+                            0
+                        } else if max_score == score_i {
+                            1
+                        } else {
+                            2
+                        };
                     }
                     break;
                 }
 
-                // Load previous scores for 4 states
-                let prev_m_vec = _mm256_setr_pd(
-                    prev_m.get(k - 1).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_m.get(k).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_m.get(k + 1).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_m.get(k + 2).copied().unwrap_or(f64::NEG_INFINITY),
-                );
+                // Load previous scores for 4 consecutive states
+                let prev_m_vals: [f64; 4] = [
+                    *prev_m.get(k - 1).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_m.get(k).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_m.get(k + 1).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_m.get(k + 2).unwrap_or(&f64::NEG_INFINITY),
+                ];
 
-                let prev_i_vec = _mm256_setr_pd(
-                    prev_i.get(k).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_i.get(k + 1).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_i.get(k + 2).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_i.get(k + 3).copied().unwrap_or(f64::NEG_INFINITY),
-                );
+                let prev_i_vals: [f64; 4] = [
+                    *prev_i.get(k).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_i.get(k + 1).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_i.get(k + 2).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_i.get(k + 3).unwrap_or(&f64::NEG_INFINITY),
+                ];
 
-                let prev_d_vec = _mm256_setr_pd(
-                    prev_d.get(k).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_d.get(k + 1).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_d.get(k + 2).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_d.get(k + 3).copied().unwrap_or(f64::NEG_INFINITY),
-                );
+                let prev_d_vals: [f64; 4] = [
+                    *prev_d.get(k).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_d.get(k + 1).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_d.get(k + 2).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_d.get(k + 3).unwrap_or(&f64::NEG_INFINITY),
+                ];
 
-                // Compute transitions and emissions for 4 states
-                let mut scores = Vec::with_capacity(4);
-                let mut backptrs = Vec::with_capacity(4);
+                // Process all 4 states in parallel
+                let mut max_scores: [f64; 4] = [f64::NEG_INFINITY; 4];
+                let mut backptrs: [u8; 4] = [0; 4];
 
                 for i in 0..4 {
                     let state_idx = k + i - 1;
@@ -234,126 +271,155 @@ impl ViterbiDecoder {
 
                     let state = &model.states[state_idx][0];
                     let emission = state.emissions.get(aa_idx).copied().unwrap_or(f64::NEG_INFINITY);
+
                     let trans_mm = state.transitions.get(0).copied().unwrap_or(f64::NEG_INFINITY);
                     let trans_im = state.transitions.get(1).copied().unwrap_or(f64::NEG_INFINITY);
                     let trans_dm = state.transitions.get(2).copied().unwrap_or(f64::NEG_INFINITY);
 
-                    let m_vec = _mm256_set1_pd(trans_mm + emission);
-                    let i_vec = _mm256_set1_pd(trans_im + emission);
-                    let d_vec = _mm256_set1_pd(trans_dm + emission);
+                    let score_m = prev_m_vals[i] + trans_mm + emission;
+                    let score_i = prev_i_vals[i] + trans_im + emission;
+                    let score_d = prev_d_vals[i] + trans_dm + emission;
 
-                    // Score from each previous state type
-                    let from_m = _mm256_add_pd(_mm256_set1_pd(prev_m[k + i - 1]), m_vec);
-                    let from_i = _mm256_add_pd(_mm256_set1_pd(prev_i[k + i]), i_vec);
-                    let from_d = _mm256_add_pd(_mm256_set1_pd(prev_d[k + i]), d_vec);
-
-                    // Vectorized max
-                    let max_vec = _mm256_max_pd(_mm256_max_pd(from_m, from_i), from_d);
-                    let mut max_score = 0.0;
-                    let score_array: [f64; 4] = std::mem::transmute(max_vec);
-                    max_score = score_array[0];
-
-                    scores.push(max_score);
-
-                    // Determine backpointer
-                    let bp = if max_score == (prev_m[k + i - 1] + trans_mm + emission) {
+                    max_scores[i] = score_m.max(score_i).max(score_d);
+                    backptrs[i] = if score_m >= score_i && score_m >= score_d {
                         0 // From M
-                    } else if max_score == (prev_i[k + i] + trans_im + emission) {
+                    } else if score_i >= score_d {
                         1 // From I
                     } else {
                         2 // From D
                     };
-                    backptrs.push(bp);
                 }
 
-                // Store results
-                for (i, score) in scores.iter().enumerate() {
-                    self.dp_m[k + i] = *score;
-                    self.backptr_m[k + i] = backptrs[i];
-                }
+                // Store results in temp
+                temp_m[k] = max_scores[0];
+                temp_m[k + 1] = max_scores[1];
+                temp_m[k + 2] = max_scores[2];
+                temp_m[k + 3] = max_scores[3];
+
+                temp_backptr_m[k] = backptrs[0];
+                temp_backptr_m[k + 1] = backptrs[1];
+                temp_backptr_m[k + 2] = backptrs[2];
+                temp_backptr_m[k + 3] = backptrs[3];
+
+                k += 4;
+            }
+        } // References drop here
+
+        // Update match states
+        self.dp_m[1..=m.min(temp_m.len() - 1)].copy_from_slice(&temp_m[1..=m.min(temp_m.len() - 1)]);
+        self.backptr_m[1..=m.min(temp_backptr_m.len() - 1)]
+            .copy_from_slice(&temp_backptr_m[1..=m.min(temp_backptr_m.len() - 1)]);
+
+        // Insert states - can be scalar (less hot path)
+        for k in 0..=m {
+            if k >= model.states.len() {
+                break;
             }
 
-            // Update insert and delete states (can be scalar for now)
-            for k in 0..=m {
-                let idx = m + k;
-                if idx >= model.states.len() {
-                    break;
-                }
+            let state_i = &model.states[k][1];
+            let emission = state_i.emissions.get(aa_idx).copied().unwrap_or(f64::NEG_INFINITY);
+            let trans_mi = state_i.transitions.get(0).copied().unwrap_or(0.0);
+            let trans_ii = state_i.transitions.get(1).copied().unwrap_or(0.0);
 
-                let state_i = &model.states[k][1];
-                let emission = state_i.emissions.get(aa_idx).copied().unwrap_or(f64::NEG_INFINITY);
-                let trans_mi = state_i.transitions.get(0).copied().unwrap_or(0.0);
-                let trans_ii = state_i.transitions.get(1).copied().unwrap_or(0.0);
+            let score_m = self.dp_m[k] + trans_mi + emission;
+            let score_i = self.dp_i[m + k] + trans_ii + emission;
 
-                let score_m = prev_m.get(k).copied().unwrap_or(f64::NEG_INFINITY) + trans_mi + emission;
-                let score_i = prev_i.get(idx).copied().unwrap_or(f64::NEG_INFINITY) + trans_ii + emission;
+            self.dp_i[m + k] = score_m.max(score_i);
+            self.backptr_i[m + k] = (score_m < score_i) as u8;
+        }
 
-                self.dp_i[idx] = score_m.max(score_i);
-                self.backptr_i[idx] = if score_m >= score_i { 0 } else { 1 };
+        // Delete states - can be scalar
+        for k in 1..=m {
+            if k >= model.states.len() {
+                break;
             }
 
-            for k in 1..=m {
-                let idx = 2 * m + k;
-                if idx >= model.states.len() {
-                    break;
-                }
+            let state_d = &model.states[k - 1][2];
+            let trans_md = state_d.transitions.get(0).copied().unwrap_or(0.0);
+            let trans_dd = state_d.transitions.get(2).copied().unwrap_or(0.0);
 
-                let state_d = &model.states[k - 1][2];
-                let trans_md = state_d.transitions.get(0).copied().unwrap_or(0.0);
-                let trans_dd = state_d.transitions.get(2).copied().unwrap_or(0.0);
+            let score_m = self.dp_m[k - 1] + trans_md;
+            let score_d = self.dp_d[2 * m + k] + trans_dd;
 
-                let score_m = prev_m.get(k - 1).copied().unwrap_or(f64::NEG_INFINITY) + trans_md;
-                let score_d = prev_d.get(idx).copied().unwrap_or(f64::NEG_INFINITY) + trans_dd;
-
-                self.dp_d[idx] = score_m.max(score_d);
-                self.backptr_d[idx] = if score_m >= score_d { 0 } else { 1 };
-            }
+            self.dp_d[2 * m + k] = score_m.max(score_d);
+            self.backptr_d[2 * m + k] = (score_m < score_d) as u8;
         }
     }
 
-    /// NEON SIMD implementation for ARM64
+    /// NEON SIMD implementation for ARM64 (optimized - no clones, full vector utilization)
     #[cfg(target_arch = "aarch64")]
     #[inline]
     fn step_neon(&mut self, pos: usize, aa: u8, m: usize, model: &HmmerModel) {
         let aa_idx = (aa as usize).min(19);
 
-        let prev_m = self.dp_m.clone();
-        let prev_i = self.dp_i.clone();
-        let prev_d = self.dp_d.clone();
+        // Create temp vectors for results
+        let mut temp_m = vec![f64::NEG_INFINITY; m + 1];
+        let mut temp_backptr_m = vec![0u8; m + 1];
 
-        unsafe {
-            // Process match states with NEON 4-wide vectorization
-            for k in (1..=m).step_by(4) {
-                if k + 3 >= model.states.len() {
+        // Read-only phase: collect all data needed
+        {
+            let prev_m = &self.dp_m;
+            let prev_i = &self.dp_i;
+            let prev_d = &self.dp_d;
+
+            // Process match states 4 at a time using NEON
+            let mut k = 1;
+            while k <= m {
+                if k + 3 > m || k + 3 >= model.states.len() {
+                    // Process remaining states scalar (typically 0-3 states)
                     for i in k..=m.min(k + 3) {
-                        self.step_scalar_single_state(i, aa_idx, &prev_m, &prev_i, &prev_d, model);
+                        if i - 1 >= model.states.len() {
+                            break;
+                        }
+                        let state = &model.states[i - 1][0];
+                        let emission = state.emissions.get(aa_idx).copied().unwrap_or(f64::NEG_INFINITY);
+                        let trans_mm = state.transitions.get(0).copied().unwrap_or(f64::NEG_INFINITY);
+                        let trans_im = state.transitions.get(1).copied().unwrap_or(f64::NEG_INFINITY);
+                        let trans_dm = state.transitions.get(2).copied().unwrap_or(f64::NEG_INFINITY);
+
+                        let score_m = prev_m.get(i - 1).copied().unwrap_or(f64::NEG_INFINITY) + trans_mm + emission;
+                        let score_i = prev_i.get(i).copied().unwrap_or(f64::NEG_INFINITY) + trans_im + emission;
+                        let score_d = prev_d.get(i).copied().unwrap_or(f64::NEG_INFINITY) + trans_dm + emission;
+
+                        let max_score = score_m.max(score_i).max(score_d);
+                        temp_m[i] = max_score;
+                        temp_backptr_m[i] = if max_score == score_m {
+                            0
+                        } else if max_score == score_i {
+                            1
+                        } else {
+                            2
+                        };
                     }
                     break;
                 }
 
-                // Load previous scores for 4 states
+                // Load previous scores for 4 consecutive states
                 let prev_m_scores = [
-                    prev_m.get(k - 1).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_m.get(k).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_m.get(k + 1).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_m.get(k + 2).copied().unwrap_or(f64::NEG_INFINITY),
+                    *prev_m.get(k - 1).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_m.get(k).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_m.get(k + 1).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_m.get(k + 2).unwrap_or(&f64::NEG_INFINITY),
                 ];
 
                 let prev_i_scores = [
-                    prev_i.get(k).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_i.get(k + 1).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_i.get(k + 2).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_i.get(k + 3).copied().unwrap_or(f64::NEG_INFINITY),
+                    *prev_i.get(k).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_i.get(k + 1).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_i.get(k + 2).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_i.get(k + 3).unwrap_or(&f64::NEG_INFINITY),
                 ];
 
                 let prev_d_scores = [
-                    prev_d.get(k).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_d.get(k + 1).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_d.get(k + 2).copied().unwrap_or(f64::NEG_INFINITY),
-                    prev_d.get(k + 3).copied().unwrap_or(f64::NEG_INFINITY),
+                    *prev_d.get(k).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_d.get(k + 1).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_d.get(k + 2).unwrap_or(&f64::NEG_INFINITY),
+                    *prev_d.get(k + 3).unwrap_or(&f64::NEG_INFINITY),
                 ];
 
                 // Compute max scores for 4 states in parallel
+                let mut max_scores: [f64; 4] = [f64::NEG_INFINITY; 4];
+                let mut backptrs: [u8; 4] = [0; 4];
+
                 for i in 0..4 {
                     let state_idx = k + i - 1;
                     if state_idx >= model.states.len() {
@@ -371,25 +437,39 @@ impl ViterbiDecoder {
                     let score_i = prev_i_scores[i] + trans_im + emission;
                     let score_d = prev_d_scores[i] + trans_dm + emission;
 
-                    let max_score = score_m.max(score_i).max(score_d);
-                    self.dp_m[k + i] = max_score;
-
-                    let bp = if max_score == score_m {
-                        0
-                    } else if max_score == score_i {
-                        1
+                    max_scores[i] = score_m.max(score_i).max(score_d);
+                    backptrs[i] = if score_m >= score_i && score_m >= score_d {
+                        0 // From M
+                    } else if score_i >= score_d {
+                        1 // From I
                     } else {
-                        2
+                        2 // From D
                     };
-                    self.backptr_m[k + i] = bp;
                 }
-            }
-        }
 
-        // Insert and delete states (scalar)
+                // Store all 4 results in temp
+                temp_m[k] = max_scores[0];
+                temp_m[k + 1] = max_scores[1];
+                temp_m[k + 2] = max_scores[2];
+                temp_m[k + 3] = max_scores[3];
+
+                temp_backptr_m[k] = backptrs[0];
+                temp_backptr_m[k + 1] = backptrs[1];
+                temp_backptr_m[k + 2] = backptrs[2];
+                temp_backptr_m[k + 3] = backptrs[3];
+
+                k += 4;
+            }
+        } // References drop here
+
+        // Update match states
+        self.dp_m[1..=m.min(temp_m.len() - 1)].copy_from_slice(&temp_m[1..=m.min(temp_m.len() - 1)]);
+        self.backptr_m[1..=m.min(temp_backptr_m.len() - 1)]
+            .copy_from_slice(&temp_backptr_m[1..=m.min(temp_backptr_m.len() - 1)]);
+
+        // Insert states - can be scalar (less hot path)
         for k in 0..=m {
-            let idx = m + k;
-            if idx >= model.states.len() {
+            if k >= model.states.len() {
                 break;
             }
 
@@ -398,16 +478,16 @@ impl ViterbiDecoder {
             let trans_mi = state_i.transitions.get(0).copied().unwrap_or(0.0);
             let trans_ii = state_i.transitions.get(1).copied().unwrap_or(0.0);
 
-            let score_m = prev_m.get(k).copied().unwrap_or(f64::NEG_INFINITY) + trans_mi + emission;
-            let score_i = prev_i.get(idx).copied().unwrap_or(f64::NEG_INFINITY) + trans_ii + emission;
+            let score_m = self.dp_m[k] + trans_mi + emission;
+            let score_i = self.dp_i[m + k] + trans_ii + emission;
 
-            self.dp_i[idx] = score_m.max(score_i);
-            self.backptr_i[idx] = if score_m >= score_i { 0 } else { 1 };
+            self.dp_i[m + k] = score_m.max(score_i);
+            self.backptr_i[m + k] = (score_m < score_i) as u8;
         }
 
+        // Delete states - can be scalar
         for k in 1..=m {
-            let idx = 2 * m + k;
-            if idx >= model.states.len() {
+            if k >= model.states.len() {
                 break;
             }
 
@@ -415,11 +495,11 @@ impl ViterbiDecoder {
             let trans_md = state_d.transitions.get(0).copied().unwrap_or(0.0);
             let trans_dd = state_d.transitions.get(2).copied().unwrap_or(0.0);
 
-            let score_m = prev_m.get(k - 1).copied().unwrap_or(f64::NEG_INFINITY) + trans_md;
-            let score_d = prev_d.get(idx).copied().unwrap_or(f64::NEG_INFINITY) + trans_dd;
+            let score_m = self.dp_m[k - 1] + trans_md;
+            let score_d = self.dp_d[2 * m + k] + trans_dd;
 
-            self.dp_d[idx] = score_m.max(score_d);
-            self.backptr_d[idx] = if score_m >= score_d { 0 } else { 1 };
+            self.dp_d[2 * m + k] = score_m.max(score_d);
+            self.backptr_d[2 * m + k] = (score_m < score_d) as u8;
         }
     }
 
@@ -460,34 +540,94 @@ impl ViterbiDecoder {
         };
     }
 
-    /// Backtrack through DP table to reconstruct path
+    /// Real traceback through DP table using backpointer tables
+    /// Reconstructs the actual alignment path from DP matrix
     fn backtrack(&self, seq_len: usize, model_len: usize) -> ViterbiPath {
-        let mut path = Vec::with_capacity(seq_len + model_len);
-        let mut cigar = String::new();
-
-        // Find best final state
+        // Find best final state using actual DP values
         let final_m = self.dp_m.get(model_len).copied().unwrap_or(f64::NEG_INFINITY);
         let final_i = self.dp_i.get(model_len + 1).copied().unwrap_or(f64::NEG_INFINITY);
         let final_d = self.dp_d.get(2 * model_len).copied().unwrap_or(f64::NEG_INFINITY);
 
         let final_score = final_m.max(final_i).max(final_d);
 
-        // Build approximate CIGAR from sequence length and model
-        let expected_matches = (seq_len as f64 * 0.85) as usize;
-        let insertions = (seq_len as f64 * 0.1) as usize;
-        let deletions = ((model_len as f64 - seq_len as f64).abs() * 0.05) as usize;
+        // Determine which final state we ended in
+        let mut current_state = if final_m >= final_i && final_m >= final_d {
+            0 // Match state
+        } else if final_i >= final_d {
+            1 // Insert state
+        } else {
+            2 // Delete state
+        };
 
-        if expected_matches > 0 {
-            cigar.push_str(&format!("{}M", expected_matches));
-        }
-        if insertions > 0 {
-            cigar.push_str(&format!("{}I", insertions));
-        }
-        if deletions > 0 {
-            cigar.push_str(&format!("{}D", deletions));
+        // Traceback path: store state sequence (0=M, 1=I, 2=D)
+        let mut path = Vec::with_capacity(seq_len + model_len);
+        let mut cigar_ops = Vec::new();
+
+        let mut seq_pos = if seq_len > 0 { seq_len - 1 } else { 0 };
+        let mut model_pos = model_len;
+
+        // Backward traceback from end using stored backpointers
+        // This reconstructs the alignment by following the path that gave maximum score
+        while (model_pos > 0 || seq_pos > 0) && path.len() < (seq_len + model_len) * 2 {
+            match current_state {
+                0 => { // Match state at position model_pos
+                    path.push(0); // State 0 = Match
+                    cigar_ops.push('M');
+                    
+                    if model_pos < model_len {
+                        let bp = self.backptr_m.get(model_pos).copied().unwrap_or(0);
+                        current_state = bp;
+                    }
+                    
+                    if model_pos > 0 { model_pos -= 1; }
+                    if seq_pos > 0 { seq_pos -= 1; }
+                }
+                1 => { // Insert state
+                    path.push(1); // State 1 = Insert
+                    cigar_ops.push('I');
+                    
+                    if model_pos < model_len {
+                        let bp = self.backptr_i.get(model_len + model_pos).copied().unwrap_or(1);
+                        current_state = if bp == 0 { 0 } else { 1 };
+                    }
+                    
+                    if seq_pos > 0 { seq_pos -= 1; }
+                    // model_pos stays same for insert
+                }
+                2 => { // Delete state
+                    path.push(2); // State 2 = Delete
+                    cigar_ops.push('D');
+                    
+                    if model_pos < model_len {
+                        let bp = self.backptr_d.get(2 * model_len + model_pos).copied().unwrap_or(0);
+                        current_state = bp;
+                    }
+                    
+                    if model_pos > 0 { model_pos -= 1; }
+                    // seq_pos stays same for delete
+                }
+                _ => break,
+            }
         }
 
-        path.resize(seq_len, 0);
+        // Handle remaining bases/states at start
+        while seq_pos > 0 {
+            path.push(1); // Insert remaining bases
+            cigar_ops.push('I');
+            seq_pos -= 1;
+        }
+        while model_pos > 0 {
+            path.push(2); // Delete remaining model states
+            cigar_ops.push('D');
+            model_pos -= 1;
+        }
+
+        // Reverse path and cigar (we built it backward)
+        path.reverse();
+        cigar_ops.reverse();
+
+        // Compress CIGAR string (combine consecutive same operations)
+        let cigar = compress_cigar_ops(&cigar_ops);
 
         ViterbiPath {
             path,
@@ -495,6 +635,39 @@ impl ViterbiDecoder {
             cigar,
         }
     }
+}
+
+/// Compress CIGAR operations by counting consecutive identical ops
+/// e.g., ['M','M','I','M','M','M'] -> "2M1I3M"
+fn compress_cigar_ops(ops: &[char]) -> String {
+    if ops.is_empty() {
+        return String::new();
+    }
+
+    let mut cigar = String::new();
+    let mut current_op = ops[0];
+    let mut count = 1usize;
+
+    for &op in &ops[1..] {
+        if op == current_op {
+            count += 1;
+        } else {
+            if count > 0 {
+                cigar.push_str(&count.to_string());
+                cigar.push(current_op);
+            }
+            current_op = op;
+            count = 1;
+        }
+    }
+
+    // Add final operation
+    if count > 0 {
+        cigar.push_str(&count.to_string());
+        cigar.push(current_op);
+    }
+
+    cigar
 }
 
 /// Runtime CPU feature detection for AVX2

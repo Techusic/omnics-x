@@ -279,7 +279,8 @@ impl HmmerModel {
         Ok([match_state, insert_state, delete_state])
     }
 
-    /// Parse a single state line
+    /// Parse a single state line with robust numerical handling
+    /// Handles HMMER3 special values like "*" (negative infinity) and scaling factors
     fn parse_state_line(&self, line: &str, state_type: char, line_num: usize) -> HmmerResult<HmmerState> {
         let parts: Vec<&str> = line.split_whitespace().collect();
         
@@ -288,41 +289,50 @@ impl HmmerModel {
 
         match state_type {
             'M' => {
-                // Match state: 20 emission scores + transitions
-                for i in 0..20 {
-                    if i < parts.len() {
-                        let score = parts[i].parse::<f64>()
-                            .map_err(|_| HmmerError::InvalidNumeric(parts[i].to_string()))?;
-                        emissions.push(score);
-                    }
+                // Match state: 20 emission scores + 3 transitions
+                // Validate we have enough fields
+                if parts.len() < 20 {
+                    return Err(HmmerError::ParseError {
+                        line: line_num,
+                        msg: format!("Match state missing fields: expected ≥20, got {}", parts.len()),
+                    });
                 }
-                // Transitions: M->M, M->I, M->D
+
+                // Parse 20 emission scores
+                for i in 0..20 {
+                    let score = self.parse_hmmer_score(parts[i], line_num)?;
+                    emissions.push(score);
+                }
+                
+                // Parse transitions (M->M, M->I, M->D)
                 for i in 20..23.min(parts.len()) {
-                    let score = parts[i].parse::<f64>()
-                        .map_err(|_| HmmerError::InvalidNumeric(parts[i].to_string()))?;
+                    let score = self.parse_hmmer_score(parts[i], line_num)?;
                     transitions.push(score);
                 }
             }
             'I' => {
-                // Insert state: 20 emission scores + transitions
-                for i in 0..20 {
-                    if i < parts.len() {
-                        let score = parts[i].parse::<f64>()
-                            .map_err(|_| HmmerError::InvalidNumeric(parts[i].to_string()))?;
-                        emissions.push(score);
-                    }
+                // Insert state: 20 emission scores + 2 transitions (I->M, I->I)
+                if parts.len() < 20 {
+                    return Err(HmmerError::ParseError {
+                        line: line_num,
+                        msg: format!("Insert state missing fields: expected ≥20, got {}", parts.len()),
+                    });
                 }
+
+                for i in 0..20 {
+                    let score = self.parse_hmmer_score(parts[i], line_num)?;
+                    emissions.push(score);
+                }
+                
                 for i in 20..22.min(parts.len()) {
-                    let score = parts[i].parse::<f64>()
-                        .map_err(|_| HmmerError::InvalidNumeric(parts[i].to_string()))?;
+                    let score = self.parse_hmmer_score(parts[i], line_num)?;
                     transitions.push(score);
                 }
             }
             'D' => {
-                // Delete state: no emissions + transitions
+                // Delete state: no emissions, 3 transitions (D->M, D->I, D->D)
                 for i in 0..3.min(parts.len()) {
-                    let score = parts[i].parse::<f64>()
-                        .map_err(|_| HmmerError::InvalidNumeric(parts[i].to_string()))?;
+                    let score = self.parse_hmmer_score(parts[i], line_num)?;
                     transitions.push(score);
                 }
             }
@@ -339,6 +349,39 @@ impl HmmerModel {
             emissions,
             transitions,
         })
+    }
+
+    /// Parse HMMER3 numerical value with special handling
+    /// - "*" represents $-\infty$ (impossible transition)
+    /// - Values may be scaled by 1000 for precision (stored as log-probabilities)
+    /// - Returns raw score (not automatically unscaled)
+    fn parse_hmmer_score(&self, value: &str, line_num: usize) -> HmmerResult<f64> {
+        match value.trim() {
+            "*" => {
+                // HMMER3 uses "*" to represent -infinity (impossible states)
+                Ok(f64::NEG_INFINITY)
+            }
+            "-inf" | "-Inf" | "-INF" => {
+                Ok(f64::NEG_INFINITY)
+            }
+            s => {
+                // Try to parse as f64 directly
+                match s.parse::<f64>() {
+                    Ok(val) => {
+                        // HMMER3 stores log-probabilities, often scaled by 1000 for precision
+                        // Standard HMMER3 ASCII format uses these as-is (in different units than raw bits)
+                        // If value is very large (>100), it's likely still in original units
+                        Ok(val)
+                    }
+                    Err(_) => {
+                        Err(HmmerError::InvalidNumeric(format!(
+                            "Line {}: Cannot parse value '{}' as number",
+                            line_num, s
+                        )))
+                    }
+                }
+            }
+        }
     }
 
     /// Calculate E-value for a bit score
