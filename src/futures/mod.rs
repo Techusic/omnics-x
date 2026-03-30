@@ -28,6 +28,7 @@ pub mod msa;
 pub mod phylogeny;
 pub mod pfam;
 pub mod tree_refinement;
+pub mod streaming_msa;
 pub mod hmmer3_full_parser;
 pub mod msa_profile_alignment;
 pub mod phylogeny_parsimony;
