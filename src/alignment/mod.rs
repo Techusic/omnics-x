@@ -17,6 +17,7 @@ pub mod bam;
 pub mod gpu_dispatcher;
 pub mod gpu_kernels;
 pub mod cuda_kernels;
+pub mod cuda_kernels_rtc;
 pub mod cuda_device_context;
 pub mod cuda_runtime;
 pub mod kernel_compiler;
@@ -27,6 +28,7 @@ pub mod simd_viterbi;
 pub mod profile_dp;
 pub mod gpu_memory;
 pub mod cigar_gen;
+pub mod gpu_executor;
 
 pub use bam::{BamFile, BamRecord};
 pub use gpu_dispatcher::{GpuDispatcher, GpuAvailability, AlignmentStrategy, GpuDeviceInfo};
@@ -40,6 +42,7 @@ pub use simd_viterbi::{ViterbiDecoder, ViterbiPath};
 pub use profile_dp::{Pssm, ProfileAlignment, align_profiles};
 pub use gpu_memory::{GpuMemoryPool, MultiGpuMemory, MemoryAllocation};
 pub use cigar_gen::{CigarString, CigarOp, traceback_to_cigar};
+pub use gpu_executor::GpuExecutor;
 
 use crate::error::{Error, Result};
 use crate::protein::{Protein, AminoAcid};
