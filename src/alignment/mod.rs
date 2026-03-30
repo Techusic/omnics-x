@@ -588,26 +588,32 @@ impl SmithWaterman {
 
         // OPTIMIZATION: Use optimized traceback that generates CIGAR directly during traceback
         // This eliminates the redundant two-step process (build strings → iterate for CIGAR)
-        let (aligned1, aligned2, cigar) = self.traceback_sw_with_cigar(h, seq1_bytes, seq2_bytes, max_i, max_j)?;
+        let (aligned1, aligned2, cigar, start_i, start_j) = self.traceback_sw_with_cigar(h, seq1_bytes, seq2_bytes, max_i, max_j)?;
 
+        // Mathematical formula for soft-clipping (SAM format):
+        // - left_clip = positions before alignment starts = start_i
+        // - right_clip = positions after alignment ends = seq1.len() - max_i
+        // - start_pos = position where alignment begins = start_i
+        // - end_pos = position where alignment ends = max_i
         let result = AlignmentResult {
             score,
             aligned_seq1: aligned1,
             aligned_seq2: aligned2,
-            start_pos1: max_i,
-            start_pos2: max_j,
-            end_pos1: seq1.len(),
-            end_pos2: seq2.len(),
+            start_pos1: start_i,  // ✓ FIXED: Use start position from traceback
+            start_pos2: start_j,  // ✓ FIXED: Use start position from traceback
+            end_pos1: max_i,      // ✓ FIXED: Use end position (max score position)
+            end_pos2: max_j,      // ✓ FIXED: Use end position (max score position)
             cigar, // Already generated during traceback - no second iteration needed!
-            soft_clips: (max_i as u32, (seq1.len() - max_i) as u32),
+            soft_clips: (start_i as u32, (seq1.len() - max_i) as u32),  // ✓ FIXED: Correct formula
         };
 
         Ok(result)
     }
 
     /// Optimized traceback that generates CIGAR during alignment (eliminates redundant iteration)
-    /// Returns: (aligned_seq1, aligned_seq2, cigar_string)
+    /// Returns: (aligned_seq1, aligned_seq2, cigar_string, start_i, start_j)
     /// This avoids the two-step process of building strings then iterating to generate CIGAR
+    /// The start_i and start_j are critical for calculating soft-clipping lengths
     fn traceback_sw_with_cigar(
         &self,
         h: &[Vec<i32>],
@@ -615,7 +621,7 @@ impl SmithWaterman {
         seq2: &[AminoAcid],
         mut i: usize,
         mut j: usize,
-    ) -> Result<(String, String, String)> {
+    ) -> Result<(String, String, String, usize, usize)> {
         let mut aligned1 = String::new();
         let mut aligned2 = String::new();
         let mut cigar_ops = Vec::new(); // Cache CIGAR operations during traceback
@@ -678,7 +684,8 @@ impl SmithWaterman {
         }
         
         let cigar_str = cigar.to_string();
-        Ok((aligned1_str, aligned2_str, cigar_str))
+        // Return start positions (where traceback loop exited) for soft-clipping calculation
+        Ok((aligned1_str, aligned2_str, cigar_str, i, j))
     }
 
     /// Legacy traceback method (kept for backward compatibility)
