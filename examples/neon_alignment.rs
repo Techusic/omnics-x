@@ -22,9 +22,9 @@
 /// # Transfer binary to ARM system and run
 /// ```
 
-use omics_simd::protein::{AminoAcid, Protein};
-use omics_simd::scoring::{ScoringMatrix, MatrixType};
-use omics_simd::alignment::SmithWaterman;
+use omicsx::protein::{AminoAcid, Protein};
+use omicsx::scoring::{ScoringMatrix, MatrixType};
+use omicsx::alignment::SmithWaterman;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== NEON-Optimized Alignment Example ===\n");
@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Demonstrate batch processing capability
     println!("\n=== Batch Processing Example ===\n");
 
-    use omics_simd::alignment::batch::*;
+    use omicsx::alignment::batch::*;
 
     let reference_seq = "MVHLTPEEKS";
     let batch_aligner =

@@ -10,7 +10,7 @@ repository = "https://github.com/techusic/omicsx"
 homepage = "https://github.com/techusic/omicsx"
 documentation = "https://docs.rs/omicsx"
 keywords = ["bioinformatics", "simd", "alignment", "genomics", "cuda"]
-categories = ["algorithms", "biology", "data-structures", "science"]
+categories = ["algorithms", "data-structures", "science"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

@@ -3,8 +3,8 @@
 //! Comprehensive test demonstrating GPU kernel execution, memory management,
 //! and device detection with actual computation validation.
 
-use omics_simd::alignment::GpuDispatcher;
-use omics_simd::futures::gpu::*;
+use omicsx::alignment::GpuDispatcher;
+use omicsx::futures::gpu::*;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (name, len1, len2) in test_cases {
         let strategy = gpu_dispatcher.dispatch_alignment(len1, len2, None);
-        let speedup = omics_simd::alignment::gpu_dispatcher::GpuDispatcherStrategy::gpu_speedup_factor(strategy);
+        let speedup = omicsx::alignment::gpu_dispatcher::GpuDispatcherStrategy::gpu_speedup_factor(strategy);
         println!(
             "  {:<12} ({:>6} × {:>6}): {:?} [{:.1}x speedup]",
             name,

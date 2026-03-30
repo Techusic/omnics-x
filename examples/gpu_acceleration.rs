@@ -3,9 +3,9 @@
 //! Demonstrates GPU-accelerated sequence alignment with automatic backend selection.
 //! Shows how to use CUDA, HIP, and Vulkan compute shaders for high-performance alignment.
 
-use omics_simd::alignment::{GpuDispatcher, AlignmentStrategy, GpuAvailability};
-use omics_simd::protein::{Protein, AminoAcid};
-use omics_simd::scoring::ScoringMatrix;
+use omicsx::alignment::{GpuDispatcher, AlignmentStrategy, GpuAvailability};
+use omicsx::protein::{Protein, AminoAcid};
+use omicsx::scoring::ScoringMatrix;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== OMICS-X GPU Acceleration Demo ===\n");
@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Sequence 2 Length: {}", seq2_small.len());
     println!("  Selected Strategy: {:?}", strategy_small);
     println!("  Estimated Speedup: {:.1}x", {
-        use omics_simd::alignment::gpu_dispatcher::GpuDispatcherStrategy;
+        use omicsx::alignment::gpu_dispatcher::GpuDispatcherStrategy;
         GpuDispatcherStrategy::gpu_speedup_factor(strategy_small)
     });
     println!();
@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Sequence 2 Length: {}", len2_med);
     println!("  Selected Strategy: {:?}", strategy_med);
     println!("  Estimated Speedup: {:.1}x", {
-        use omics_simd::alignment::gpu_dispatcher::GpuDispatcherStrategy;
+        use omicsx::alignment::gpu_dispatcher::GpuDispatcherStrategy;
         GpuDispatcherStrategy::gpu_speedup_factor(strategy_med)
     });
     println!();
@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Sequence Similarity: ~85%");
     println!("  Selected Strategy: {:?}", strategy_large_similar);
     println!("  Estimated Speedup: {:.1}x", {
-        use omics_simd::alignment::gpu_dispatcher::GpuDispatcherStrategy;
+        use omicsx::alignment::gpu_dispatcher::GpuDispatcherStrategy;
         GpuDispatcherStrategy::gpu_speedup_factor(strategy_large_similar)
     });
     println!();
@@ -108,11 +108,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Sequence 2 Length: {}", len2_xlarge);
     println!("  Selected Strategy: {:?}", strategy_xlarge);
     println!("  Estimated GPU Memory: {} MB", {
-        use omics_simd::alignment::gpu_dispatcher::GpuDispatcherStrategy;
+        use omicsx::alignment::gpu_dispatcher::GpuDispatcherStrategy;
         GpuDispatcherStrategy::estimate_gpu_memory(len1_xlarge, len2_xlarge) / (1024 * 1024)
     });
     println!("  Fits in GPU Memory: {}", {
-        use omics_simd::alignment::gpu_dispatcher::GpuDispatcherStrategy;
+        use omicsx::alignment::gpu_dispatcher::GpuDispatcherStrategy;
         if gpu_dispatcher.has_gpu() {
             let device_mem = gpu_dispatcher.device_info()[0].total_memory;
             GpuDispatcherStrategy::fits_in_gpu_memory(len1_xlarge, len2_xlarge, device_mem)
@@ -121,7 +121,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     println!("  Estimated Speedup: {:.1}x", {
-        use omics_simd::alignment::gpu_dispatcher::GpuDispatcherStrategy;
+        use omicsx::alignment::gpu_dispatcher::GpuDispatcherStrategy;
         GpuDispatcherStrategy::gpu_speedup_factor(strategy_xlarge)
     });
     println!();
@@ -131,7 +131,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         println!("Example 5: Vulkan Compute Shader Source");
         println!("---");
-        use omics_simd::alignment::kernel::vulkan::VulkanComputeKernel;
+        use omicsx::alignment::kernel::vulkan::VulkanComputeKernel;
         let vulkan_kernel = VulkanComputeKernel::default();
         let glsl_source = vulkan_kernel.smith_waterman_glsl();
         println!("First 500 chars of Smith-Waterman GLSL shader:");

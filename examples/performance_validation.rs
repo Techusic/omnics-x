@@ -1,8 +1,8 @@
 /// Simple performance validation comparing scalar vs SIMD kernels
 /// Avoids criterion overhead to get direct timing measurements
 
-use omics_simd::alignment::SmithWaterman;
-use omics_simd::protein::Protein;
+use omicsx::alignment::SmithWaterman;
+use omicsx::protein::Protein;
 use std::time::Instant;
 
 fn main() {

@@ -3,8 +3,8 @@
 //! This example demonstrates how to perform local alignment between two protein sequences
 //! using the Smith-Waterman algorithm with the default BLOSUM62 scoring matrix.
 
-use omics_simd::alignment::SmithWaterman;
-use omics_simd::protein::Protein;
+use omicsx::alignment::SmithWaterman;
+use omicsx::protein::Protein;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create two protein sequences from FASTA-like strings

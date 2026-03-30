@@ -9,14 +9,14 @@
 /// - Integrate alignment results into St. Jude analysis workflows
 /// - Support pediatric cancer genomics research
 
-use omics_simd::protein::Protein;
-use omics_simd::scoring::{ScoringMatrix, AffinePenalty, MatrixType};
-use omics_simd::futures::st_jude_bridge::{
+use omicsx::protein::Protein;
+use omicsx::scoring::{ScoringMatrix, AffinePenalty, MatrixType};
+use omicsx::futures::st_jude_bridge::{
     BridgeConfig, StJudeBridge, SequenceType,
 };
-use omics_simd::futures::SeqRecord;
+use omicsx::futures::SeqRecord;
 
-fn main() -> omics_simd::Result<()> {
+fn main() -> omicsx::Result<()> {
     println!("🏥 St. Jude Omics Ecosystem Integration Example\n");
 
     // ==================== Example 1: Protein Conversion ====================

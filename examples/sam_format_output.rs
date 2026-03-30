@@ -5,8 +5,8 @@
 /// 2. Generate SAM format records
 /// 3. Output SAM header and alignment records
 
-use omics_simd::alignment::{SmithWaterman, SamHeader, SamRecord};
-use omics_simd::protein::Protein;
+use omicsx::alignment::{SmithWaterman, SamHeader, SamRecord};
+use omicsx::protein::Protein;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("OMICS-SIMD: SAM Format Output Example");

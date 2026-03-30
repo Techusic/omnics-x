@@ -14,10 +14,10 @@
 /// cargo run --example bam_format --release
 /// ```
 
-use omics_simd::protein::Protein;
-use omics_simd::scoring::{ScoringMatrix, MatrixType};
-use omics_simd::alignment::SmithWaterman;
-use omics_simd::alignment::bam::{BamFile, BamRecord};
+use omicsx::protein::Protein;
+use omicsx::scoring::{ScoringMatrix, MatrixType};
+use omicsx::alignment::SmithWaterman;
+use omicsx::alignment::bam::{BamFile, BamRecord};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== BAM Format Example ===\n");
@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create BAM file with header
     let mut bam = {
-        use omics_simd::alignment::SamHeader;
+        use omicsx::alignment::SamHeader;
         let header = SamHeader::new("1.0");
         let mut bam = BamFile::new(header);
         bam.add_reference("chr1".to_string(), reference.len() as u32);
@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             name, result.score, result.start_pos1, result.identity());
 
         // Create SAM record
-        use omics_simd::alignment::SamRecord;
+        use omicsx::alignment::SamRecord;
         let sam = SamRecord {
             qname: name.to_string(),
             query_seq: query_str.to_string(),
@@ -100,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n=== CIGAR Encoding ===");
     if let Some(record) = bam_loaded.records.first() {
         println!("CIGAR operations: {:?}", record.cigar);
-        let formatted = omics_simd::alignment::bam::BamRecord::format_cigar(&record.cigar);
+        let formatted = omicsx::alignment::bam::BamRecord::format_cigar(&record.cigar);
         println!("CIGAR string: {}", formatted);
     }
 
