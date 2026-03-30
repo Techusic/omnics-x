@@ -50,7 +50,7 @@ src/futures/gpu_old.rs
 src/futures/gpu_mock.rs
 src/alignment/gpu_simulation.rs
 
-# Redundant documentation files (kept for reference in docs/)
+# Redundant documentation files (kept for reference only, not tracked)
 CHANGELOG_OLD_BACKUP.md
 README_OLD_BACKUP.md
 *_OLD_BACKUP.md
@@ -90,13 +90,6 @@ docs/_build/
 /.npm/
 package-lock.json
 npm-debug.log
-
-# Obsolete/Duplicate Documentation Files (not tracked)
-# Backup files (old versions)
-*_OLD_BACKUP.md
-*_BACKUP.md
-README_OLD_BACKUP.md
-CHANGELOG_OLD_BACKUP.md
 
 # Redundant Phase files (keep current phase docs only)
 PHASE1_IMPLEMENTATION.md

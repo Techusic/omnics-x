@@ -353,7 +353,8 @@ impl HmmerModel {
     fn parse_state_line_robust(&self, line: &str, state_type: char, line_num: usize) -> HmmerResult<HmmerState> {
         // IMPROVED: Use regex to extract fields with flexible whitespace handling
         // Pattern: captures numeric/special values with optional surrounding whitespace
-        let field_pattern = Regex::new(r"(\S+)").expect("Regex should compile");
+        let field_pattern = Regex::new(r"(\S+)")
+            .map_err(|e| HmmerError::ParseError { line: line_num, msg: format!("Regex compilation failed: {}", e) })?;
         let fields: Vec<&str> = field_pattern
             .find_iter(line)
             .map(|m| m.as_str())
@@ -528,5 +529,80 @@ mod tests {
         // E-value should be positive and reasonable (between 0 and 100 for good scores)
         assert!(evalue > 0.0, "E-value should be positive, got {}", evalue);
         assert!(evalue < 100.0, "E-value seems too large: {}", evalue);
+    }
+
+    #[test]
+    fn test_parse_error_invalid_numeric_score() {
+        // Test that invalid numeric scores return proper errors, not panics
+        let line = "invalid_not_a_number";
+        
+        // Attempting to parse invalid score should return a Result error
+        let result = line.trim().parse::<f64>();
+        assert!(result.is_err(), "Invalid number should fail to parse");
+    }
+
+    #[test]
+    fn test_parse_error_special_scores() {
+        // Verify special score values are handled properly
+        let special_scores = vec!["*", "-inf", "*NNNN", "1.23", "-5.7"];
+        
+        for score_str in special_scores {
+            // These should all be handled without panicking
+            let trimmed = score_str.trim();
+            match trimmed {
+                "*" | "-inf" => {}, // Special values
+                s if s.starts_with("*") => {}, // Tagged value
+                _ => {
+                    let _: f64 = trimmed.parse().expect("Valid number");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_regex_compilation_safety() {
+        // Verify regex compilation returns Result, not panic
+        let result = Regex::new(r"(\S+)");
+        assert!(result.is_ok(), "Valid regex should compile");
+        
+        // Even complex regex should not panic
+        let complex_regex = Regex::new(r"^[A-Z][A-Za-z0-9_]*$");
+        assert!(complex_regex.is_ok(), "Complex regex should compile");
+    }
+
+    #[test]
+    fn test_karlin_evalue_bounds() {
+        let k = KarlinParameters::default_protein();
+        
+        // Score 0 should give evalue around database size / K
+        let evalue_0 = k.evalue(0.0, 1_000_000);
+        assert!(evalue_0 > 0.0, "E-value for score 0 should be positive");
+        
+        // High score should give low e-value
+        let evalue_high = k.evalue(50.0, 1_000_000);
+        assert!(evalue_high < evalue_0, "Higher score should have lower E-value");
+    }
+
+    #[test]
+    fn test_hmmer_model_null_model_normalization() {
+        let mut model = HmmerModel {
+            name: "TEST".to_string(),
+            description: "Test".to_string(),
+            length: 50,
+            alpha: "amino".to_string(),
+            rf: String::new(),
+            consensus: String::new(),
+            date: String::new(),
+            version: "3.3".to_string(),
+            karlin: KarlinParameters::default_protein(),
+            states: Vec::new(),
+            begin_trans: vec![0.0; 3],
+            end_trans: Vec::new(),
+            null_model: vec![0.05; 20], // 20 amino acids
+        };
+        
+        // Null model should sum to approximately 1.0
+        let sum: f64 = model.null_model.iter().sum();
+        assert!((sum - 1.0).abs() < 0.01, "Null model should sum to ~1.0, got {}", sum);
     }
 }

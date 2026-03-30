@@ -112,7 +112,8 @@ impl BamFile {
         if cursor + header_len > data.len() {
             return Err(crate::error::Error::Custom("Invalid BAM header size".to_string()));
         }
-        let _header_text = String::from_utf8_lossy(&data[cursor..cursor + header_len]).to_string();
+        let _header_text = String::from_utf8(data[cursor..cursor + header_len].to_vec())
+            .map_err(|e| crate::error::Error::Custom(format!("Invalid UTF-8 in BAM header: {}", e)))?;
         cursor += header_len;
 
         // Parse header
@@ -126,7 +127,8 @@ impl BamFile {
             if cursor + name_len > data.len() {
                 return Err(crate::error::Error::Custom("Invalid reference name size".to_string()));
             }
-            let name = String::from_utf8_lossy(&data[cursor..cursor + name_len - 1]).to_string();
+            let name = String::from_utf8(data[cursor..cursor + name_len - 1].to_vec())
+                .map_err(|e| crate::error::Error::Custom(format!("Invalid UTF-8 in reference name: {}", e)))?;
             cursor += name_len;
             let length = read_le_i32(&data, &mut cursor)? as u32;
             references.push((name, length));
@@ -307,7 +309,8 @@ impl BamRecord {
             .iter()
             .position(|&b| b == 0)
             .ok_or_else(|| crate::error::Error::Custom("Invalid BAM record: no null terminator".to_string()))?;
-        let read_name = String::from_utf8_lossy(&data[cursor..cursor + name_end]).to_string();
+        let read_name = String::from_utf8(data[cursor..cursor + name_end].to_vec())
+            .map_err(|e| crate::error::Error::Custom(format!("Invalid UTF-8 in read name: {}", e)))?;
         cursor += name_end + 1;
 
         let cigar_count = (flag_nc & 0xFFFF) as usize;
@@ -422,5 +425,82 @@ mod tests {
         let ops = vec![(10, 0), (2, 1), (5, 2), (3, 0)];
         let cigar = BamRecord::format_cigar(&ops);
         assert_eq!(cigar, "10M2I5D3M");
+    }
+
+    #[test]
+    fn test_invalid_utf8_in_bam_header() {
+        // Create BAM with valid magic but invalid UTF-8 in header
+        let mut data = Vec::from(BAM_MAGIC);
+        
+        // Write header size
+        data.extend_from_slice(&(4i32).to_le_bytes()); // 4 bytes of header
+        
+        // Write invalid UTF-8 sequence (invalid continuation byte)
+        data.extend_from_slice(&[0xFF, 0xFE, 0xFD, 0xFC]); // Invalid UTF-8
+        
+        // Write 0 references
+        data.extend_from_slice(&(0i32).to_le_bytes());
+        
+        let result = BamFile::from_bytes(&data);
+        assert!(result.is_err(), "Should error on invalid UTF-8 in header");
+    }
+
+    #[test]
+    fn test_invalid_utf8_in_reference_name() {
+        // Create BAM with 1 valid header but invalid UTF-8 in reference name
+        let mut data = Vec::from(BAM_MAGIC);
+        
+        // Write valid empty header
+        data.extend_from_slice(&(0i32).to_le_bytes()); // empty header
+        
+        // Write 1 reference with invalid UTF-8
+        data.extend_from_slice(&(1i32).to_le_bytes()); // 1 reference
+        data.extend_from_slice(&(5i32).to_le_bytes()); // name length: 4 bytes + null termininator
+        data.extend_from_slice(&[0xFF, 0xFE, 0xFD, 0x00]); // Invalid UTF-8 then null
+        data.extend_from_slice(&(1000i32).to_le_bytes()); // reference length
+        
+        let result = BamFile::from_bytes(&data);
+        assert!(result.is_err(), "Should error on invalid UTF-8 in reference name");
+    }
+
+    #[test]
+    fn test_invalid_utf8_in_read_name() {
+        // Create a BAM record with invalid UTF-8 in read name
+        let mut data = Vec::new();
+        
+        // Write BAM record header fields
+        data.extend_from_slice(&(0i32).to_le_bytes()); // ref_id
+        data.extend_from_slice(&(100i32).to_le_bytes()); // pos
+        data.extend_from_slice(&(0i32).to_le_bytes()); // bin_mq_nl
+        data.extend_from_slice(&(0i32).to_le_bytes()); // flag_nc
+        data.extend_from_slice(&(0i32).to_le_bytes()); // l_seq
+        data.extend_from_slice(&(0i32).to_le_bytes()); // next_ref_id
+        data.extend_from_slice(&(0i32).to_le_bytes()); // next_pos
+        data.extend_from_slice(&(0i32).to_le_bytes()); // tlen
+        
+        // Write invalid UTF-8 read name (not null-terminated properly)
+        data.extend_from_slice(&[0xFF, 0xFE, 0x00]); // Invalid UTF-8 with null term
+        
+        let result = BamRecord::from_bytes(&data);
+        assert!(result.is_err(), "Should error on invalid UTF-8 in read name");
+    }
+
+    #[test]
+    fn test_valid_utf8_roundtrip() -> Result<()> {
+        let header = SamHeader::new("1.0");
+        let mut bam = BamFile::new(header);
+        
+        // Add references with valid UTF-8 names
+        bam.add_reference("chromosome_1".to_string(), 1000000);
+        bam.add_reference("chr2_fragment".to_string(), 2000000);
+        
+        let bytes = bam.to_bytes()?;
+        let restored = BamFile::from_bytes(&bytes)?;
+        
+        assert_eq!(restored.references.len(), 2);
+        assert_eq!(restored.references[0].0, "chromosome_1");
+        assert_eq!(restored.references[1].0, "chr2_fragment");
+        
+        Ok(())
     }
 }

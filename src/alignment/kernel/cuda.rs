@@ -329,7 +329,7 @@ impl CudaAlignmentKernel {
     /// Check if CUDA is available and initialized
     pub fn is_available(&self) -> bool {
         #[cfg(feature = "cuda")]
-        self.inner.is_some()
+        self.inner.is_some();
         #[cfg(not(feature = "cuda"))]
         false
     }

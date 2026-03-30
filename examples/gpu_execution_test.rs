@@ -238,12 +238,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("║    cargo build --features hip                             ║");
         println!("║    cargo build --features vulkan                          ║");
     } else {
-        println!("║  ✓ GPU detection working                                   ║");
+        println!("║  ✓ GPU detection working                                  ║");
         println!("║  ✓ Memory management functional                           ║");
         println!("║  ✓ Device properties accessible                           ║");
         println!("║  ✓ Multi-GPU dispatch ready                               ║");
-        println!("║                                                            ║");
-        println!("║  {} GPU device(s) available for compute                ║", devices.len());
+        println!("║                                                           ║");
+        println!("║  {} GPU device(s) available for compute                   ║", devices.len());
     }
 
     println!("║  ✓ All framework tests passed                              ║");

@@ -20,6 +20,8 @@ pub mod cuda_kernels;
 pub mod cuda_device_context;
 pub mod cuda_runtime;
 pub mod kernel_compiler;
+pub mod kernel_launcher;
+pub mod smith_waterman_cuda;
 pub mod hmmer3_parser;
 pub mod simd_viterbi;
 pub mod profile_dp;
@@ -31,6 +33,8 @@ pub use gpu_dispatcher::{GpuDispatcher, GpuAvailability, AlignmentStrategy, GpuD
 pub use cuda_device_context::CudaDeviceContext;
 pub use cuda_runtime::{GpuRuntime, GpuBuffer};
 pub use kernel_compiler::{KernelCompiler, KernelType, CompiledKernel, KernelCache};
+pub use kernel_launcher::{SmithWatermanKernel, NeedlemanWunschKernel, KernelExecutionResult};
+pub use smith_waterman_cuda::SmithWatermanCudaKernel;
 pub use hmmer3_parser::{HmmerModel, HmmerError, KarlinParameters};
 pub use simd_viterbi::{ViterbiDecoder, ViterbiPath};
 pub use profile_dp::{Pssm, ProfileAlignment, align_profiles};
