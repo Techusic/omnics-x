@@ -94,7 +94,7 @@ Automatic hardware detection on module load.
 ### Device Detection API
 
 ```rust
-use omics_simd::futures::gpu::*;
+use omicsx::futures::gpu::*;
 
 // Detect available GPUs (queries real hardware)
 match detect_devices() {
@@ -223,7 +223,7 @@ __global__ void needleman_wunsch_kernel(
 ### GPU Memory Estimation
 
 ```rust
-use omics_simd::alignment::gpu_dispatcher::GpuDispatcherStrategy;
+use omicsx::alignment::gpu_dispatcher::GpuDispatcherStrategy;
 
 let mem_required = GpuDispatcherStrategy::estimate_gpu_memory(10000, 10000);
 println!("Required GPU memory: {} MB", mem_required / (1024 * 1024));
@@ -301,7 +301,7 @@ cargo build --release
 ### Runtime GPU Detection
 
 ```rust
-use omics_simd::alignment::GpuDispatcher;
+use omicsx::alignment::GpuDispatcher;
 
 let dispatcher = GpuDispatcher::new();
 
@@ -366,7 +366,7 @@ batch_align_gpu(&large_batch)?;
 Reuse GPU buffers across multiple alignments:
 
 ```rust
-use omics_simd::alignment::kernel::cuda::CudaAlignmentKernel;
+use omicsx::alignment::kernel::cuda::CudaAlignmentKernel;
 
 let cuda = CudaAlignmentKernel::new()?;
 

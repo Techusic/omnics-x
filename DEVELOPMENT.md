@@ -163,21 +163,21 @@ sudo apt-get install linux-tools-generic
 cargo build --release
 
 # Run with perf
-perf record -g target/release/omics_simd
+perf record -g target/release/omicsx
 perf report
 
 # Flamegraph (install flamegraph tool)
-cargo flamegraph --bin omics_simd
+cargo flamegraph --bin omicsx
 ```
 
 ### Verify SIMD Instructions
 
 ```bash
 # View assembly (x86-64)
-objdump -d target/release/libomics_simd.so | grep -E "vmov|vpadd|vpmax" | head -20
+objdump -d target/release/libomicsx.so | grep -E "vmov|vpadd|vpmax" | head -20
 
 # View assembly (macOS)
-otool -tV target/release/libomics_simd.dylib | grep -E "vmov|vpadd" | head -20
+otool -tV target/release/libomicsx.dylib | grep -E "vmov|vpadd" | head -20
 
 # Use cargo with disassemble feature
 cargo install cargo-objdump
@@ -422,7 +422,7 @@ lambda = 0.3176  // Lambda parameter
 **Solution**: Check target features
 ```bash
 # Verify AVX2 instructions in binary
-objdump -d target/release/libomics_simd.so | grep "vmov" | wc -l
+objdump -d target/release/libomicsx.so | grep "vmov" | wc -l
 
 # Should show non-zero count of SIMD instructions
 ```
@@ -465,10 +465,10 @@ Before releasing new version:
 RUSTFLAGS="-C target-cpu=native -C lto=fat" cargo build --release
 
 # Generate binary
-ls -lh target/release/libomics_simd.so  # ~143 KB
+ls -lh target/release/libomicsx.so  # ~143 KB
 
 # Strip symbols if needed
-strip target/release/libomics_simd.so
+strip target/release/libomicsx.so
 ```
 
 ### Platform-Specific Builds

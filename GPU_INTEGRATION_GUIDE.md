@@ -26,7 +26,7 @@ cargo run --example gpu_discovery
 ### Detect Available GPUs
 
 ```rust
-use omics_simd::alignment::GpuRuntime;
+use omicsx::alignment::GpuRuntime;
 
 fn main() -> Result<()> {
     // Detect all available GPUs
@@ -50,7 +50,7 @@ fn main() -> Result<()> {
 ### Allocate Device Memory
 
 ```rust
-use omics_simd::alignment::GpuRuntime;
+use omicsx::alignment::GpuRuntime;
 
 fn main() -> Result<()> {
     let gpu = GpuRuntime::new(0)?;
@@ -68,7 +68,7 @@ fn main() -> Result<()> {
 ### Transfer Data to GPU
 
 ```rust
-use omics_simd::alignment::GpuRuntime;
+use omicsx::alignment::GpuRuntime;
 
 fn main() -> Result<()> {
     let gpu = GpuRuntime::new(0)?;
@@ -87,7 +87,7 @@ fn main() -> Result<()> {
 ### Transfer Data from GPU
 
 ```rust
-use omics_simd::alignment::GpuRuntime;
+use omicsx::alignment::GpuRuntime;
 
 fn main() -> Result<()> {
     let gpu = GpuRuntime::new(0)?;
@@ -110,7 +110,7 @@ fn main() -> Result<()> {
 ### Compile and Cache Kernels
 
 ```rust
-use omics_simd::alignment::{KernelCompiler, KernelType};
+use omicsx::alignment::{KernelCompiler, KernelType};
 use std::path::PathBuf;
 
 fn main() -> Result<()> {
@@ -158,7 +158,7 @@ rm -rf .omnics_kernel_cache/
 ### Query Device Properties
 
 ```rust
-use omics_simd::alignment::GpuRuntime;
+use omicsx::alignment::GpuRuntime;
 
 fn main() -> Result<()> {
     let devices = GpuRuntime::detect_available_devices()?;
@@ -179,7 +179,7 @@ fn main() -> Result<()> {
 ### Compute Capability Detection
 
 ```rust
-use omics_simd::alignment::cuda_kernels::CudaComputeCapability;
+use omicsx::alignment::cuda_kernels::CudaComputeCapability;
 
 fn main() {
     // Parse compute capability
@@ -199,7 +199,7 @@ fn main() {
 ### Distribute Work Across GPUs
 
 ```rust
-use omics_simd::alignment::cuda_kernels::CudaMultiGpuBatch;
+use omicsx::alignment::cuda_kernels::CudaMultiGpuBatch;
 
 fn main() -> Result<()> {
     let device_ids = vec![0, 1, 2];
@@ -222,7 +222,7 @@ fn main() -> Result<()> {
 
 ```rust
 use std::time::Instant;
-use omics_simd::alignment::GpuRuntime;
+use omicsx::alignment::GpuRuntime;
 
 fn main() -> Result<()> {
     let gpu = GpuRuntime::new(0)?;
@@ -320,8 +320,8 @@ cargo build --release --features all-gpu
 ## Example: Complete Workflow
 
 ```rust
-use omics_simd::alignment::GpuRuntime;
-use omics_simd::protein::Protein;
+use omicsx::alignment::GpuRuntime;
+use omicsx::protein::Protein;
 
 fn main() -> Result<()> {
     // 1. Detect GPU
