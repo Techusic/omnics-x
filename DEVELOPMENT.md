@@ -4,7 +4,7 @@
 **Email**: raghavmkota@gmail.com  
 **Repository**: https://github.com/techusic/omicsx
 
-Complete development documentation for OMICS-X v1.0.1 (production-ready bioinformatics toolkit with SIMD & GPU acceleration).
+Complete development documentation for OMICS-X v1.1.0 (production-ready bioinformatics toolkit with SIMD, GPU acceleration, multi-format HMM parsing, and distributed computing).
 
 ## Quick Start
 
@@ -14,14 +14,19 @@ git clone https://github.com/techusic/omicsx.git
 cd omicsx
 cargo build --release
 
-# Run full test suite
+# Run full test suite (267 tests)
 cargo test --lib
 
-# Run examples (all 4)
+# Run examples (all 9)
 cargo run --example basic_alignment --release
 cargo run --example performance_validation --release
 cargo run --example neon_alignment --release
 cargo run --example bam_format --release
+cargo run --example gpu_acceleration --release
+cargo run --example gpu_execution_test --release
+cargo run --example multiformat_hmm_parser --release
+cargo run --example distributed_alignment --release
+cargo run --example st_jude_integration --release
 
 # Run benchmarks
 cargo bench --bench alignment_benchmarks -- --verbose
@@ -44,6 +49,9 @@ cargo clean && cargo build --release
 
 # Build for ARM64 (NEON backend)
 cargo build --release --target aarch64-unknown-linux-gnu
+
+# Build with CUDA support (requires CUDA toolkit)
+cargo build --release --features "cuda-12050"
 
 # Build with specific features
 cargo build --release --features "simd,batching"
