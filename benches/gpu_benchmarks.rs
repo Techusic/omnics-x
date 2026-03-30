@@ -4,8 +4,8 @@
 //! Run with: cargo bench --bench gpu_benchmarks -- --verbose
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use omics_simd::alignment::{GpuDispatcher, AlignmentStrategy};
-use omics_simd::alignment::gpu_dispatcher::GpuDispatcherStrategy;
+use omicsx::alignment::{GpuDispatcher, AlignmentStrategy};
+use omicsx::alignment::gpu_dispatcher::GpuDispatcherStrategy;
 
 fn gpu_strategy_selection_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("gpu_strategy_selection");
@@ -66,7 +66,7 @@ fn cuda_kernel_timing_simulation(c: &mut Criterion) {
             // Simulate kernel launch overhead (~microseconds)
             #[cfg(feature = "cuda")]
             {
-                use omics_simd::alignment::kernel::cuda::CudaAlignmentKernel;
+                use omicsx::alignment::kernel::cuda::CudaAlignmentKernel;
                 let _kernel = CudaAlignmentKernel::new();
             }
         });
@@ -78,7 +78,7 @@ fn hip_kernel_timing_simulation(c: &mut Criterion) {
         b.iter(|| {
             #[cfg(feature = "hip")]
             {
-                use omics_simd::alignment::kernel::hip::HipAlignmentKernel;
+                use omicsx::alignment::kernel::hip::HipAlignmentKernel;
                 let _kernel = HipAlignmentKernel::new();
             }
         });
@@ -90,7 +90,7 @@ fn vulkan_kernel_timing_simulation(c: &mut Criterion) {
         b.iter(|| {
             #[cfg(feature = "vulkan")]
             {
-                use omics_simd::alignment::kernel::vulkan::VulkanComputeKernel;
+                use omicsx::alignment::kernel::vulkan::VulkanComputeKernel;
                 let _kernel = VulkanComputeKernel::new();
             }
         });
@@ -121,7 +121,7 @@ fn speedup_estimation_benchmark(c: &mut Criterion) {
 fn cuda_kernel_config_benchmark(c: &mut Criterion) {
     c.bench_function("cuda_kernel_config_creation", |b| {
         b.iter(|| {
-            use omics_simd::alignment::cuda_kernels::{CudaComputeCapability, CudaKernelConfig};
+            use omicsx::alignment::cuda_kernels::{CudaComputeCapability, CudaKernelConfig};
             
             let cap = CudaComputeCapability::Ampere;
             let _config = CudaKernelConfig {
@@ -142,8 +142,8 @@ fn cuda_grid_calculation_benchmark(c: &mut Criterion) {
     for size in [100, 500, 1000, 5000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter(|| {
-                use omics_simd::alignment::cuda_kernels::CudaAlignmentKernel;
-                use omics_simd::alignment::cuda_kernels::CudaComputeCapability;
+                use omicsx::alignment::cuda_kernels::CudaAlignmentKernel;
+                use omicsx::alignment::cuda_kernels::CudaComputeCapability;
                 
                 let kernel = CudaAlignmentKernel::new(0, CudaComputeCapability::Ampere);
                 let _grid = kernel.calculate_grid_size(black_box(size), black_box(size));
@@ -157,14 +157,14 @@ fn cuda_performance_estimation_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("cuda_performance_estimation");
     
     for (name, capability) in vec![
-        ("Maxwell", omics_simd::alignment::cuda_kernels::CudaComputeCapability::Maxwell),
-        ("Pascal", omics_simd::alignment::cuda_kernels::CudaComputeCapability::Pascal),
-        ("Ampere", omics_simd::alignment::cuda_kernels::CudaComputeCapability::Ampere),
-        ("Ada", omics_simd::alignment::cuda_kernels::CudaComputeCapability::Ada),
+        ("Maxwell", omicsx::alignment::cuda_kernels::CudaComputeCapability::Maxwell),
+        ("Pascal", omicsx::alignment::cuda_kernels::CudaComputeCapability::Pascal),
+        ("Ampere", omicsx::alignment::cuda_kernels::CudaComputeCapability::Ampere),
+        ("Ada", omicsx::alignment::cuda_kernels::CudaComputeCapability::Ada),
     ] {
         group.bench_with_input(BenchmarkId::from_parameter(name), &capability, |b, &cap| {
             b.iter(|| {
-                use omics_simd::alignment::cuda_kernels::CudaAlignmentKernel;
+                use omicsx::alignment::cuda_kernels::CudaAlignmentKernel;
                 
                 let kernel = CudaAlignmentKernel::new(0, cap);
                 let _time = kernel.estimate_time(black_box(500), black_box(500));

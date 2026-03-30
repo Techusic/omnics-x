@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use omics_simd::alignment::SmithWaterman;
-use omics_simd::protein::Protein;
+use omicsx::alignment::SmithWaterman;
+use omicsx::protein::Protein;
 
 fn benchmark_smith_waterman_scalar_vs_simd(c: &mut Criterion) {
     let mut group = c.benchmark_group("smith_waterman_comparison");
