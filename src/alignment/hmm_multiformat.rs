@@ -158,23 +158,34 @@ impl HmmParser for HmmSearchParser {
             accession: None,
             description: None,
             length: 0,
-            alphabet: "amino".to_string(),
+            alphabet: "protein".to_string(),
             emission_scores: Vec::new(),
             transition_scores: Vec::new(),
             meta: HmmMetadata::default(),
         };
 
         for line in content.lines() {
-            if line.contains("HMM name:") {
-                profile.name = line.split(':').nth(1).unwrap_or("").trim().to_string();
-            } else if line.contains("HMM length:") {
-                if let Some(len_str) = line.split(':').nth(1).and_then(|s| s.trim().split_whitespace().next()) {
-                    if let Ok(len) = len_str.parse::<usize>() {
-                        profile.length = len;
+            if line.starts_with("Query:") {
+                // Query line format: "Query:       PF00001  [M=345]"
+                if let Some(query_name) = line.split_whitespace().nth(1) {
+                    profile.name = query_name.to_string();
+                }
+                
+                // Also try to extract length from [M=xxx] on same line
+                if let Some(start_idx) = line.find("[M=") {
+                    if let Some(end_idx) = line[start_idx..].find(']') {
+                        let length_str = &line[start_idx+3..start_idx+end_idx];
+                        if let Ok(len) = length_str.trim().parse::<usize>() {
+                            profile.length = len;
+                        }
                     }
                 }
-            } else if line.contains("Alphabet:") {
-                profile.alphabet = line.split(':').nth(1).unwrap_or("").trim().to_string();
+            } else if line.starts_with("Accession:") {
+                if let Some(acc) = line.split_whitespace().nth(1) {
+                    profile.accession = Some(acc.to_string());
+                }
+            } else if line.starts_with("Description:") {
+                profile.description = Some(line[12..].trim().to_string());
             }
         }
 
@@ -182,7 +193,7 @@ impl HmmParser for HmmSearchParser {
     }
 
     fn detect(&self, content: &str) -> bool {
-        content.contains("HMM name:") && content.contains("HMM length:")
+        content.contains("Query:") && (content.contains("HMM") || content.contains("hmmsearch"))
     }
 
     fn format_name(&self) -> &'static str {
