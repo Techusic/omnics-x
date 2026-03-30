@@ -1,14 +1,11 @@
 /// GPU kernel executor with runtime CUDA compilation
 /// Uses cudarc for device management and NVRTC for JIT compilation
 
-use crate::protein::{Protein, AminoAcid};
-use crate::scoring::{ScoringMatrix, AffinePenalty};
-use crate::alignment::AlignmentResult;
 use crate::error::Result;
 
 #[cfg(feature = "cuda")]
 pub mod gpu_executor {
-    use super::*;
+    use crate::error::Result;
     use cudarc::driver::{CudaDevice, LaunchAsync, DeviceRepr};
     use std::sync::Arc;
 

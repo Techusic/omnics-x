@@ -24,6 +24,7 @@ pub mod kernel_compiler;
 pub mod kernel_launcher;
 pub mod smith_waterman_cuda;
 pub mod hmmer3_parser;
+pub mod hmm_multiformat;
 pub mod simd_viterbi;
 pub mod profile_dp;
 pub mod gpu_memory;
@@ -38,6 +39,7 @@ pub use kernel_compiler::{KernelCompiler, KernelType, CompiledKernel, KernelCach
 pub use kernel_launcher::{SmithWatermanKernel, NeedlemanWunschKernel, KernelExecutionResult};
 pub use smith_waterman_cuda::SmithWatermanCudaKernel;
 pub use hmmer3_parser::{HmmerModel, HmmerError, KarlinParameters};
+pub use hmm_multiformat::{MultiFormatHmmParser, UniversalHmmProfile, HmmFormat, HmmParser};
 pub use simd_viterbi::{ViterbiDecoder, ViterbiPath};
 pub use profile_dp::{Pssm, ProfileAlignment, align_profiles};
 pub use gpu_memory::{GpuMemoryPool, MultiGpuMemory, MemoryAllocation};

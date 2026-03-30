@@ -4,7 +4,6 @@
 
 use crate::protein::Protein;
 use crate::scoring::ScoringMatrix;
-use crate::alignment::AlignmentResult;
 use crate::error::Result;
 use std::path::Path;
 
