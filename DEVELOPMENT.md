@@ -17,11 +17,12 @@ cargo build --release
 # Run full test suite (267 tests)
 cargo test --lib
 
-# Run examples (all 9)
+# Run examples (all 10)
 cargo run --example basic_alignment --release
 cargo run --example performance_validation --release
 cargo run --example neon_alignment --release
 cargo run --example bam_format --release
+cargo run --example sam_format_output --release
 cargo run --example gpu_acceleration --release
 cargo run --example gpu_execution_test --release
 cargo run --example multiformat_hmm_parser --release
