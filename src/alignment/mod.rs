@@ -30,6 +30,8 @@ pub mod profile_dp;
 pub mod gpu_memory;
 pub mod cigar_gen;
 pub mod gpu_executor;
+pub mod gpu_halo_buffer;
+pub mod gpu_tiling_strategy;
 
 pub use bam::{BamFile, BamRecord};
 pub use gpu_dispatcher::{GpuDispatcher, GpuAvailability, AlignmentStrategy, GpuDeviceInfo};
@@ -45,6 +47,8 @@ pub use profile_dp::{Pssm, ProfileAlignment, align_profiles};
 pub use gpu_memory::{GpuMemoryPool, MultiGpuMemory, MemoryAllocation};
 pub use cigar_gen::{CigarString, CigarOp, traceback_to_cigar};
 pub use gpu_executor::GpuExecutor;
+pub use gpu_halo_buffer::{HaloBufferManager, HaloTile, HaloConfig};
+pub use gpu_tiling_strategy::{GpuTilingStrategy, TilingProfile, TilingStats};
 
 use crate::error::{Error, Result};
 use crate::protein::{Protein, AminoAcid};
