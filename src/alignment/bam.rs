@@ -427,9 +427,33 @@ mod tests {
 
         let bytes = bam.to_bytes()?;
         assert!(!bytes.is_empty());
-        assert_eq!(&bytes[0..4], BAM_MAGIC);
+        // FIXED: BAM files are now BGZF-compressed (per SAM specification)
+        // Compressed data starts with gzip magic bytes [31, 139, 8, 0]
+        // The BAM magic bytes [66, 65, 77, 1] are inside the compressed stream
+        let gzip_magic = [31u8, 139u8, 8u8, 0u8];
+        assert_eq!(&bytes[0..4], &gzip_magic, "BAM file should start with BGZF (gzip) magic bytes");
 
         Ok(())
+    }
+
+    #[test]
+    #[test]
+    fn test_bam_compression_roundtrip() {
+        use flate2::read::GzDecoder;
+        use std::io::Read;
+        
+        let header = SamHeader::new("1.0");
+        let mut bam = BamFile::new(header);
+        bam.add_reference("chr1".to_string(), 1000);
+
+        let compressed = bam.to_bytes().expect("Failed to serialize BAM");
+        
+        // Decompress and verify BAM magic bytes are present
+        let mut decoder = GzDecoder::new(&*compressed);
+        let mut decompressed = Vec::new();
+        decoder.read_to_end(&mut decompressed).expect("Failed to decompress");
+        
+        assert_eq!(&decompressed[0..4], BAM_MAGIC, "Decompressed data should start with BAM magic");
     }
 
     #[test]

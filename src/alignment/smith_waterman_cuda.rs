@@ -43,8 +43,6 @@
 //! }
 //! ```
 
-use crate::error::Result;
-
 /// Smith-Waterman CUDA kernel with full DP computation
 pub struct SmithWatermanCudaKernel {
     /// Query sequence compiled to Device memory

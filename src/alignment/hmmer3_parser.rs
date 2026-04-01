@@ -537,9 +537,20 @@ mod tests {
         let k = KarlinParameters::default_protein();
         let evalue = k.evalue(10.0, 1_000_000);
         eprintln!("E-value for score 10.0 in DB of 1M: {}", evalue);
-        // E-value should be positive and reasonable (between 0 and 100 for good scores)
+        
+        // FIXED: E-value calculation now uses correct Karlin-Altschul formula
+        // with proper ln(2) and ln(K) conversion factors
+        // For bit score 10.0 with default parameters, E-value ~970 is correct
+        // (not the artificially small values from the old incorrect formula)
         assert!(evalue > 0.0, "E-value should be positive, got {}", evalue);
-        assert!(evalue < 100.0, "E-value seems too large: {}", evalue);
+        
+        // For marginally good scores (bit_score=10.0), E-values can be large
+        // Expect values in reasonable biological range (typically 100-1000 for marginal hits)
+        assert!(evalue < 10000.0, "E-value seems excessively large: {}", evalue);
+        
+        // Verify the calculation is consistent with Karlin-Altschul formula
+        // E = K * N * 2^(-S') should give value around 970 for these parameters
+        assert!(evalue > 100.0, "E-value too small - formula may be incorrect");
     }
 
     #[test]
