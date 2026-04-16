@@ -1135,10 +1135,13 @@ mod tests {
         assert!(result.score > 0);
         assert!(!result.cigar.is_empty());
         
-        // Verify CIGAR can be parsed
+        // Verify CIGAR can be parsed - use proper error handling instead of expect()
         for (prefix, _src) in result.cigar.split(|c: char| !c.is_numeric()).zip(1..) {
             if !prefix.is_empty() {
-                prefix.parse::<u32>().expect("CIGAR should have numeric counts");
+                prefix.parse::<u32>()
+                    .map_err(|e| crate::error::Error::Custom(
+                        format!("Invalid CIGAR numeric count '{}': {}", prefix, e)
+                    ))?;
             }
         }
         
