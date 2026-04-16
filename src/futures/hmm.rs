@@ -92,6 +92,43 @@ pub enum HmmError {
     DatabaseError(String),
 }
 
+/// Calculate the transition index based on source and destination state types
+/// 
+/// # HMMER3 Transition Indexing:
+/// 
+/// **Begin state transitions** (3 total):
+/// - Index 0: B->M (begin to match)
+/// - Index 1: B->I (begin to insert)
+/// - Index 2: B->D (begin to delete)
+/// 
+/// **Match state transitions** (3 total):
+/// - Index 0: M->M (match to match)
+/// - Index 1: M->I (match to insert)
+/// - Index 2: M->D (match to delete)
+/// 
+/// **Insert state transitions** (2 total):
+/// - Index 0: I->M (insert to match)
+/// - Index 1: I->I (insert to insert)
+/// 
+/// **Delete state transitions** (2 total):
+/// - Index 0: D->M (delete to match)
+/// - Index 1: D->D (delete to delete)
+fn get_transition_index(from_type: StateType, to_type: StateType) -> Option<usize> {
+    match (from_type, to_type) {
+        (StateType::Begin, StateType::Match) => Some(0),
+        (StateType::Begin, StateType::Insert) => Some(1),
+        (StateType::Begin, StateType::Delete) => Some(2),
+        (StateType::Match, StateType::Match) => Some(0),
+        (StateType::Match, StateType::Insert) => Some(1),
+        (StateType::Match, StateType::Delete) => Some(2),
+        (StateType::Insert, StateType::Match) => Some(0),
+        (StateType::Insert, StateType::Insert) => Some(1),
+        (StateType::Delete, StateType::Match) => Some(0),
+        (StateType::Delete, StateType::Delete) => Some(1),
+        _ => None,
+    }
+}
+
 impl ProfileHmm {
     pub fn from_msa(alignment: &[Vec<char>]) -> Result<Self, HmmError> {
         if alignment.is_empty() || alignment[0].is_empty() {
@@ -220,10 +257,12 @@ impl ProfileHmm {
                 // Sum over previous states
                 let mut max_score = f32::NEG_INFINITY;
                 for prev_j in 0..j {
-                    let trans = self.states[prev_j].transitions.get(0).copied().unwrap_or(f32::NEG_INFINITY);
-                    let emission = self.states[j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
-                    let score = dp[i - 1][prev_j] + trans + emission;
-                    max_score = max_score.max(score);
+                    if let Some(trans_idx) = get_transition_index(self.states[prev_j].state_type, self.states[j].state_type) {
+                        let trans = self.states[prev_j].transitions.get(trans_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                        let emission = self.states[j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                        let score = dp[i - 1][prev_j] + trans + emission;
+                        max_score = max_score.max(score);
+                    }
                 }
 
                 dp[i][j] = max_score;
@@ -262,12 +301,14 @@ impl ProfileHmm {
 
                 // Find best previous state
                 for prev_j in 0..j {
-                    let trans = self.states[prev_j].transitions.get(0).copied().unwrap_or(f32::NEG_INFINITY);
-                    let score = dp[i - 1][prev_j] + trans + emission;
+                    if let Some(trans_idx) = get_transition_index(self.states[prev_j].state_type, self.states[j].state_type) {
+                        let trans = self.states[prev_j].transitions.get(trans_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                        let score = dp[i - 1][prev_j] + trans + emission;
 
-                    if score > dp[i][j] {
-                        dp[i][j] = score;
-                        path_idx[i][j] = prev_j;
+                        if score > dp[i][j] {
+                            dp[i][j] = score;
+                            path_idx[i][j] = prev_j;
+                        }
                     }
                 }
             }
@@ -419,15 +460,17 @@ impl ProfileHmm {
                 let mut max_val = f32::NEG_INFINITY;
                 for prev_j in 0..j.min(m) {
                     if alpha[i - 1][prev_j].is_finite() {
-                        let trans = self.states[prev_j].transitions.get(0).copied().unwrap_or(f32::NEG_INFINITY);
-                        let emission = self.states[j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
-                        let contrib = alpha[i - 1][prev_j] + trans + emission;
-                        // Log-space sum using log-sum-exp trick
-                        max_val = if max_val.is_finite() {
-                            max_val.max(contrib)
-                        } else {
-                            contrib
-                        };
+                        if let Some(trans_idx) = get_transition_index(self.states[prev_j].state_type, self.states[j].state_type) {
+                            let trans = self.states[prev_j].transitions.get(trans_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                            let emission = self.states[j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                            let contrib = alpha[i - 1][prev_j] + trans + emission;
+                            // Log-space sum using log-sum-exp trick
+                            max_val = if max_val.is_finite() {
+                                max_val.max(contrib)
+                            } else {
+                                contrib
+                            };
+                        }
                     }
                 }
 
@@ -463,14 +506,16 @@ impl ProfileHmm {
                 let mut max_val = f32::NEG_INFINITY;
                 for next_j in (j + 1)..m {
                     if beta[i + 1][next_j].is_finite() {
-                        let trans = self.states[j].transitions.get(0).copied().unwrap_or(f32::NEG_INFINITY);
-                        let emission = self.states[next_j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
-                        let contrib = beta[i + 1][next_j] + trans + emission;
-                        max_val = if max_val.is_finite() {
-                            max_val.max(contrib)
-                        } else {
-                            contrib
-                        };
+                        if let Some(trans_idx) = get_transition_index(self.states[j].state_type, self.states[next_j].state_type) {
+                            let trans = self.states[j].transitions.get(trans_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                            let emission = self.states[next_j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                            let contrib = beta[i + 1][next_j] + trans + emission;
+                            max_val = if max_val.is_finite() {
+                                max_val.max(contrib)
+                            } else {
+                                contrib
+                            };
+                        }
                     }
                 }
 
@@ -511,10 +556,12 @@ impl ProfileHmm {
                     // Accumulate transition counts
                     for next_j in 0..m {
                         if j < m && alpha[i + 1][next_j].is_finite() && beta[i + 1][next_j].is_finite() {
-                            let trans = self.states[j].transitions.get(0).copied().unwrap_or(0.0);
-                            let emission_next = self.states[next_j].emissions.get(aa_idx).copied().unwrap_or(0.0);
-                            let xi = (alpha[i][j] + trans + emission_next + beta[i + 1][next_j]).exp();
-                            transition_counts[j][next_j] += xi;
+                            if let Some(trans_idx) = get_transition_index(self.states[j].state_type, self.states[next_j].state_type) {
+                                let trans = self.states[j].transitions.get(trans_idx).copied().unwrap_or(0.0);
+                                let emission_next = self.states[next_j].emissions.get(aa_idx).copied().unwrap_or(0.0);
+                                let xi = (alpha[i][j] + trans + emission_next + beta[i + 1][next_j]).exp();
+                                transition_counts[j][next_j] += xi;
+                            }
                         }
                     }
                 }
@@ -618,10 +665,12 @@ pub fn backward_algorithm(hmm: &ProfileHmm, sequence: &[u8]) -> Result<Vec<Vec<f
             let mut max_score = f32::NEG_INFINITY;
 
             for next_j in j + 1..m {
-                let trans = hmm.states[j].transitions.get(0).copied().unwrap_or(f32::NEG_INFINITY);
-                let emission = hmm.states[next_j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
-                let score = dp[i + 1][next_j] + trans + emission;
-                max_score = max_score.max(score);
+                if let Some(trans_idx) = get_transition_index(hmm.states[j].state_type, hmm.states[next_j].state_type) {
+                    let trans = hmm.states[j].transitions.get(trans_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                    let emission = hmm.states[next_j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                    let score = dp[i + 1][next_j] + trans + emission;
+                    max_score = max_score.max(score);
+                }
             }
 
             dp[i][j] = max_score;
@@ -649,10 +698,12 @@ pub fn forward_backward(hmm: &ProfileHmm, sequence: &[u8]) -> Result<Vec<Vec<f32
 
         for j in 0..m {
             for prev_j in 0..j {
-                let trans = hmm.states[prev_j].transitions.get(0).copied().unwrap_or(f32::NEG_INFINITY);
-                let emission = hmm.states[j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
-                let score = forward[i - 1][prev_j] + trans + emission;
-                forward[i][j] = forward[i][j].max(score);
+                if let Some(trans_idx) = get_transition_index(hmm.states[prev_j].state_type, hmm.states[j].state_type) {
+                    let trans = hmm.states[prev_j].transitions.get(trans_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                    let emission = hmm.states[j].emissions.get(aa_idx).copied().unwrap_or(f32::NEG_INFINITY);
+                    let score = forward[i - 1][prev_j] + trans + emission;
+                    forward[i][j] = forward[i][j].max(score);
+                }
             }
         }
     }
