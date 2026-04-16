@@ -39,6 +39,49 @@ test_*.txt
 *.orig
 *~
 
+# Build and test output files
+build_output.txt
+build_output_kernel.txt
+build_release.txt
+test_output.log
+test_after_fixes.txt
+test_final_validation.txt
+test_halo_output.txt
+test_halo_run.txt
+test_halo_unit.txt
+test_integration_run.txt
+test_kernel_final.txt
+test_large_seq.txt
+test_output_kernel.txt
+test_push_final.txt
+test_results_final.txt
+test_tiling_run.txt
+test_final.txt
+
+# Audit and report files (generated during development)
+*_AUDIT.md
+*_AUDIT_REPORT.md
+*_AUDIT_DETAILED.md
+*_REPORT.md
+*_TEST_REPORT.md
+*_VERIFICATION.md
+*_VERIFICATION_REPORT.md
+*_FIXES.md
+*_FIXES_APPLIED.md
+*_FIXES_VALIDATION*.md
+*_SUMMARY.md
+*_COMPLETION*.md
+*_DIAGNOSTIC*.md
+*_STATUS_REPORT.md
+*_PROGRESS*.md
+*_OPTIMIZATIONS.md
+*_INTEGRATION*.md
+*_EXECUTION*.md
+*_IMPLEMENTATION*.md
+*_REGISTRY.md
+*_GUIDE*.md
+*_BRIDGE*.md
+
 # Enhanced implementation backups (Phase 3)
 src/futures/*_original.rs
 src/alignment/*_old.rs
